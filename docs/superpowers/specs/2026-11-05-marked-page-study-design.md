@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-05
 **Status:** Draft for review
-**Working name:** Marked Pages (placeholder)
+**Working name:** Chekmark (책마크). Trademark search still to do before public use
 
 ## 1. Summary
 
