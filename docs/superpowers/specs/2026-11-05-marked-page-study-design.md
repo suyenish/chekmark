@@ -36,19 +36,23 @@ The founder is preparing for a backend development career and wants to try makin
 
 ## 4. The marks
 
-| Mark | Meaning | Result | Saved for study? |
-|---|---|---|---|
-| Double line | Word or set phrase | Meaning in context | Yes |
-| Curly line | Grammar | Explanation | Yes |
-| Single line | Sentence or any other text to translate | Regular translation | No |
+The rule for readers: **underline what you don't understand, and curl the grammar you want to study.**
+
+| Mark | What it covers | Stored type | Result | Saved for study? |
+|---|---|---|---|---|
+| Straight underline | A word, phrase or part of a sentence | `underline_save` | Meaning in context | Yes |
+| Straight underline | One or more complete sentences | `underline_translate` | Regular translation | No |
+| Curly line | Grammar | `curly` | Explanation | Yes |
 
 Rules:
 
-1. **Idioms and set phrases:** a double line across several words is saved as one item.
-2. **Part of a sentence:** a single line translates exactly the underlined text. The app does not extend it to the full sentence.
-3. **Marks inside a sentence:** a double or curly mark inside a single-lined sentence still counts. The reader gets the translation and the saved item.
-4. **Unclear marks:** the app never guesses. It labels the mark `unclear`, and the reader chooses its type or removes it.
-5. **Order:** results follow the order of the marks on the page.
+1. **Whole sentences:** an underline running from the start to the end of one or more complete printed sentences is translated and not saved. This includes a one-word sentence such as `갔어요.`
+2. **Everything shorter:** any other underline is saved as one item, however many words it covers.
+3. **Save switch:** the reader can change whether any underline is saved during the Mark check. With saving off, the app translates exactly the underlined text and does not extend it to the full sentence.
+4. **Curly marks inside an underlined sentence:** both count. The reader gets the translation and the saved grammar item.
+5. **Words inside an underlined sentence:** a second straight line cannot be told apart on paper, so the reader adds the word by hand during the Mark check.
+6. **Unclear marks:** the app never guesses. It labels the mark `unclear`, and the reader chooses its type or removes it.
+7. **Order:** results follow the order of the marks on the page.
 
 ## 5. User flow
 
@@ -67,6 +71,7 @@ Rules:
 The app shows the photo with each detected mark highlighted and colour-coded, next to a list of the same marks. In either view the reader can:
 
 - Tap a mark to change its type or remove it
+- Use the save switch on any underline
 - Add a missed mark by typing its text and choosing a type
 - Confirm the page when it looks right
 
@@ -76,9 +81,9 @@ The list is the reliable fallback. If Stage 0 shows that highlight positions are
 
 ### 6.2 Results
 
-- **Word:** word as printed, dictionary form, meaning in this context, a short usage note, the original sentence with a translation, and one simple example with a translation.
+- **Word or phrase:** text as printed, dictionary form, meaning in this context, a short usage note, the original sentence with a translation, and one simple example with a translation.
 - **Grammar:** general pattern (for example `-(으)ㄹ 뻔하다`), meaning, how it is used and attached, the original sentence with a translation, and one simple example with a translation.
-- **Sentence:** the underlined text and a natural translation.
+- **Translation:** the underlined text and a natural translation.
 
 Explanations are written in English at TOPIK 3–4 level in the first version.
 
@@ -210,7 +215,7 @@ Page status moves through:
      "problem": null,
      "marks": [
        {
-         "type": "double | curly | single | unclear",
+         "type": "underline_save | underline_translate | curly | unclear",
          "text": "text as printed",
          "normal_form": "dictionary form or pattern",
          "sentence": "the full sentence containing the mark",
@@ -220,7 +225,7 @@ Page status moves through:
    }
    ```
 
-   `normal_form` is null for single-line marks.
+   `normal_form` is null for `underline_translate` marks.
 
 3. The reader checks and confirms the marks.
 4. The app looks up each word or grammar mark in the reader's word bank by `normal_form`.
@@ -257,7 +262,7 @@ Each stage must pass before the next one starts. The targets are starting points
 
 | Stage | Work | Pass condition |
 |---|---|---|
-| **0. Mark test** | Test about 20 real marked pages, including messy ones | At least 90% of marks have correct text and type, and no mark type is below 80% |
+| **0. Mark test** | Test about 20 real marked pages, including messy ones | At least 90% of marks have correct text and type, and no type (`underline_save`, `underline_translate`, `curly`) is below 80% |
 | **1. Personal version** | Build the first version and use it with the founder's own books | Founder uses it for 3 weeks without going back to the Claude project |
 | **2. Private test** | Invite 10 to 20 learners | At least 5 are still using it after 30 days |
 | **3. Willingness to pay** | Ask active users to pay, using a simple payment link or manual transfer | At least 3 pay, at a price above the measured cost per user |
@@ -279,7 +284,8 @@ The first implementation plan covers **Stage 1 only**.
 
 | Risk | Response |
 |---|---|
-| Double and single lines are confused on short words | Stage 0 measures this, and the Mark check catches what remains |
+| Straight and curly lines are confused on short words | Stage 0 measures this, and the Mark check catches what remains |
+| Short sentences and phrases are sorted wrongly, so an underline is saved or not saved by mistake | Stage 0 measures this, and the save switch fixes what remains |
 | Highlight positions are inaccurate | List-first Mark check (section 6.1) |
 | Too few people mark paper books | Stage 2 tests this before payments are built |
 | Users stop coming back | Stage 2 measures 30-day use |
@@ -290,6 +296,6 @@ The first implementation plan covers **Stage 1 only**.
 ## 15. Assumptions to confirm
 
 1. The first version covers Korean books with English explanations only.
-2. Single-lined sentences do not become flashcards.
+2. Underlined whole sentences do not become flashcards.
 3. The first version handles one photo at a time.
 4. Microservices and Kubernetes stay out of the product until real load requires them.

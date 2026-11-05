@@ -13,8 +13,8 @@ export interface ExpectedPage {
 }
 export type ActualPage = ExpectedPage;
 
-type ScoredType = 'double' | 'curly' | 'single';
-const SCORED_TYPES: ScoredType[] = ['double', 'curly', 'single'];
+export type ScoredType = 'underline_save' | 'underline_translate' | 'curly';
+const SCORED_TYPES: ScoredType[] = ['underline_save', 'underline_translate', 'curly'];
 
 export interface MarkScore {
   overall: number;
@@ -30,8 +30,8 @@ export interface MarkScore {
 const normalise = (text: string) => text.normalize('NFC').replace(/\s+/gu, '');
 
 export function scoreMarks(expected: ExpectedPage[], actual: ActualPage[]): MarkScore {
-  const totals = { double: 0, curly: 0, single: 0 };
-  const hits = { double: 0, curly: 0, single: 0 };
+  const totals = { underline_save: 0, underline_translate: 0, curly: 0 };
+  const hits = { underline_save: 0, underline_translate: 0, curly: 0 };
   let extra = 0;
 
   const expectedFiles = new Set(expected.map((page) => page.file));
@@ -63,8 +63,8 @@ export function scoreMarks(expected: ExpectedPage[], actual: ActualPage[]): Mark
     extra += remaining.length;
   }
 
-  const correct = hits.double + hits.curly + hits.single;
-  const totalExpected = totals.double + totals.curly + totals.single;
+  const correct = hits.underline_save + hits.underline_translate + hits.curly;
+  const totalExpected = totals.underline_save + totals.underline_translate + totals.curly;
   const denominator = totalExpected + extra;
   const overall = denominator === 0 ? 0 : correct / denominator;
 

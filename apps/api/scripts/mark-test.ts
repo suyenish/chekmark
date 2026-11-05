@@ -124,9 +124,9 @@ async function main(): Promise<void> {
   const cost = calculateCost(inputTokens, outputTokens, readPrices());
   console.log(`\nModel:   ${model}`);
   console.log(`Overall: ${percent(score.overall)} (${score.correct} of ${score.expected} correct, ${score.extra} extra)`);
-  console.log(`Double:  ${percent(score.byType.double)}`);
-  console.log(`Curly:   ${percent(score.byType.curly)}`);
-  console.log(`Single:  ${percent(score.byType.single)}`);
+  console.log(`Saved underlines:    ${percent(score.byType.underline_save)}`);
+  console.log(`Sentence underlines: ${percent(score.byType.underline_translate)}`);
+  console.log(`Curly marks:         ${percent(score.byType.curly)}`);
   console.log(`Tokens:  ${inputTokens} input, ${outputTokens} output`);
   console.log(cost === null ? 'Cost:    set AI_INPUT_COST_PER_MTOK and AI_OUTPUT_COST_PER_MTOK to see this' : `Cost:    $${(cost / pages.length).toFixed(4)} per page`);
   console.log(`Result:  ${score.passed ? 'PASS' : 'FAIL'}`);

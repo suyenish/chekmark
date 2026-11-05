@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const MARK_TYPES = ['double', 'curly', 'single', 'unclear'] as const;
+export const MARK_TYPES = ['underline_save', 'underline_translate', 'curly', 'unclear'] as const;
 export type MarkType = (typeof MARK_TYPES)[number];
 
 export type Box = [left: number, top: number, right: number, bottom: number];
@@ -32,11 +32,11 @@ const markSchema = z
   })
   .superRefine((mark, ctx) => {
     const hasNormalForm = (mark.normal_form ?? '').trim() !== '';
-    if ((mark.type === 'double' || mark.type === 'curly') && !hasNormalForm) {
+    if ((mark.type === 'underline_save' || mark.type === 'curly') && !hasNormalForm) {
       ctx.addIssue({ code: 'custom', path: ['normal_form'], message: `normal_form is required on a ${mark.type} mark` });
     }
-    if (mark.type === 'single' && mark.normal_form !== null) {
-      ctx.addIssue({ code: 'custom', path: ['normal_form'], message: 'normal_form must be null on a single mark' });
+    if (mark.type === 'underline_translate' && mark.normal_form !== null) {
+      ctx.addIssue({ code: 'custom', path: ['normal_form'], message: 'normal_form must be null on an underline_translate mark' });
     }
     if (mark.box !== null && !isValidBox(mark.box)) {
       ctx.addIssue({

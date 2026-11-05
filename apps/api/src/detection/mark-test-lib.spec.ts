@@ -2,13 +2,18 @@ import { calculateCost, parseAnswers, pickPhotos, renderReport } from './mark-te
 
 describe('parseAnswers', () => {
   it('reads pages and marks', () => {
-    const json = JSON.stringify([{ file: 'a.jpg', marks: [{ type: 'double', text: '사과' }] }]);
-    expect(parseAnswers(json)).toEqual([{ file: 'a.jpg', marks: [{ type: 'double', text: '사과' }] }]);
+    const json = JSON.stringify([{ file: 'a.jpg', marks: [{ type: 'underline_save', text: '사과' }] }]);
+    expect(parseAnswers(json)).toEqual([{ file: 'a.jpg', marks: [{ type: 'underline_save', text: '사과' }] }]);
   });
 
   it('rejects unclear in the answers, because every answer must be decided', () => {
     const json = JSON.stringify([{ file: 'a.jpg', marks: [{ type: 'unclear', text: '사과' }] }]);
-    expect(() => parseAnswers(json)).toThrow(/double|curly|single/);
+    expect(() => parseAnswers(json)).toThrow(/underline_save|underline_translate|curly/);
+  });
+
+  it.each(['double', 'single'])('rejects the old %s mark type', (type) => {
+    const json = JSON.stringify([{ file: 'a.jpg', marks: [{ type, text: '사과' }] }]);
+    expect(() => parseAnswers(json)).toThrow(/answers\.json/);
   });
 
   it('gives a clear error for invalid JSON', () => {
@@ -40,7 +45,7 @@ describe('calculateCost', () => {
 describe('renderReport', () => {
   const score = {
     overall: 0.5,
-    byType: { double: 1, curly: 0, single: null },
+    byType: { underline_save: 1, underline_translate: null, curly: 0 },
     correct: 1,
     expected: 2,
     extra: 0,
@@ -48,8 +53,8 @@ describe('renderReport', () => {
   };
   const page = {
     file: 'a.jpg',
-    expected: [{ type: 'double' as const, text: '사과' }],
-    detected: [{ type: 'double' as const, text: '사과', normal_form: '사과', sentence: 's', box: [10, 20, 30, 40] as [number, number, number, number] }],
+    expected: [{ type: 'underline_save' as const, text: '사과' }],
+    detected: [{ type: 'underline_save' as const, text: '사과', normal_form: '사과', sentence: 's', box: [10, 20, 30, 40] as [number, number, number, number] }],
   };
 
   it('shows the score and the result', () => {
@@ -57,6 +62,13 @@ describe('renderReport', () => {
     expect(html).toContain('50.0%');
     expect(html).toContain('FAIL');
     expect(html).toContain('test-model');
+  });
+
+  it('labels each scored type in plain words', () => {
+    const html = renderReport(score, [page], 'm');
+    expect(html).toContain('Saved underlines: 100.0%');
+    expect(html).toContain('Sentence underlines: n/a');
+    expect(html).toContain('Curly marks: 0.0%');
   });
 
   it('positions a box as a percentage of the photo', () => {

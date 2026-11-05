@@ -5,7 +5,7 @@ import type { ExpectedPage, MarkScore, ScoredMark } from './score-marks.js';
 const answersSchema = z.array(
   z.object({
     file: z.string(),
-    marks: z.array(z.object({ type: z.enum(['double', 'curly', 'single']), text: z.string().min(1) })),
+    marks: z.array(z.object({ type: z.enum(['underline_save', 'underline_translate', 'curly']), text: z.string().min(1) })),
   }),
 );
 
@@ -47,7 +47,7 @@ export interface ReportPage {
   error?: string;
 }
 
-const COLOURS: Record<string, string> = { double: '#1565c0', curly: '#c62828', single: '#2e7d32', unclear: '#ef6c00' };
+const COLOURS: Record<string, string> = { underline_save: '#1565c0', underline_translate: '#2e7d32', curly: '#c62828', unclear: '#ef6c00' };
 
 const escapeHtml = (text: string) =>
   text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`).replace(/&#60;/g, '&lt;').replace(/&#62;/g, '&gt;').replace(/&#38;/g, '&amp;');
@@ -90,7 +90,7 @@ section{border-top:1px solid #ddd;margin-top:24px}
 <h1>Mark test: ${score.passed ? 'PASS' : 'FAIL'}</h1>
 <p>Model: ${escapeHtml(model)}</p>
 <p>Overall: ${percent(score.overall)} (${score.correct} correct of ${score.expected} expected, ${score.extra} extra)</p>
-<p>Double: ${percent(score.byType.double)} · Curly: ${percent(score.byType.curly)} · Single: ${percent(score.byType.single)}</p>
+<p>Saved underlines: ${percent(score.byType.underline_save)} · Sentence underlines: ${percent(score.byType.underline_translate)} · Curly marks: ${percent(score.byType.curly)}</p>
 ${pages.map(renderPage).join('\n')}
 </body></html>
 `;

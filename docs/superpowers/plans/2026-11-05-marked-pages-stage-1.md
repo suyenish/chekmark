@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Marks: double line = word or set phrase, saved; curly line = grammar, saved; single line = regular translation, not saved.
+- Marks: straight underline on a word, phrase or part of a sentence = `underline_save`, saved; straight underline on one or more complete sentences = `underline_translate`, not saved; curly line = `curly`, grammar, saved. The reader can switch saving on or off for any underline in the Mark check.
 - The app never guesses an unclear mark. It stores `unclear`, and the reader must resolve it before confirming.
 - First version: Korean books, English explanations, TOPIK 3–4 level, one photo at a time.
 - Daily limit: 5 pages per user, as a setting. Photos that cannot be used do not count.
@@ -110,7 +110,7 @@ interface AiClient { generate<T>(req: AiRequest<T>): Promise<T>; }
 class AiOutputInvalidError extends Error {}
 class AiTransientError extends Error {}
 
-type MarkType = 'double' | 'curly' | 'single' | 'unclear';
+type MarkType = 'underline_save' | 'underline_translate' | 'curly' | 'unclear';
 const detectionResultSchema: z.ZodType<DetectionResult>;
 // box is [left, top, right, bottom], scaled 0–1000, or null
 interface DetectedMark {
@@ -130,15 +130,15 @@ Run `git init -b main`. Gitignore `private-test-data/`, `.env` and `node_modules
 ```ts
 it('accepts each mark type and rejects any other type');
 it('requires problem text when photo_usable is false');
-it('requires normal_form on double and curly marks and null on single marks');
+it('requires normal_form on underline_save and curly marks and null on underline_translate marks');
 
 it('counts a mark correct only when text and type both match', () => {
   const s = scoreMarks(
-    [{ file: 'a.jpg', marks: [{ type: 'double', text: '사과' }, { type: 'curly', text: '-(으)ㄹ 뻔하다' }] }],
-    [{ file: 'a.jpg', marks: [{ type: 'double', text: '사과' }, { type: 'single', text: '-(으)ㄹ 뻔하다' }] }],
+    [{ file: 'a.jpg', marks: [{ type: 'underline_save', text: '사과' }, { type: 'curly', text: '-(으)ㄹ 뻔하다' }] }],
+    [{ file: 'a.jpg', marks: [{ type: 'underline_save', text: '사과' }, { type: 'underline_translate', text: '-(으)ㄹ 뻔하다' }] }],
   );
   expect(s.overall).toBe(0.5);
-  expect(s.byType.double).toBe(1);
+  expect(s.byType.underline_save).toBe(1);
   expect(s.byType.curly).toBe(0);
 });
 it('ignores whitespace and Unicode form when comparing text');
@@ -204,7 +204,7 @@ The founder does steps 1–3. Anthropic API keys must be entered by the founder 
 
 - [ ] **Step 1: Mark about 20 real pages using the new system**
 
-Include curved pages, poor light, short words and marks inside sentences. Use everyday handwriting.
+Include curved pages, poor light, short words, very short sentences, underlines that stop partway through a sentence, and curly marks inside underlined sentences. Use everyday handwriting.
 
 - [ ] **Step 2: Photograph the pages normally and put them in `private-test-data/`**
 
@@ -500,6 +500,8 @@ git commit -m "feat: add detection job, usage limits and AI budget"
 
 ```ts
 it('changing a mark type sets source to corrected');
+it('turning saving off changes an underline to underline_translate and clears normal_form');
+it('turning saving on changes an underline to underline_save');
 it('adding a mark sets source to added and places it last');
 it('refuses edits unless the page is AWAITING_CHECK with 409');
 it('refuses confirm with 409 while any mark is unclear');
@@ -562,14 +564,14 @@ it('matches composed and decomposed Korean as the same normal form', () => {
 });
 it('collapses extra spaces in a grammar pattern');
 
-it('creates an item, sense, sighting and card for a new double mark');
+it('creates an item, sense, sighting and card for a new underline_save mark');
 it('creates a grammar item for a curly mark');
-it('creates a translation and no item or card for a single mark');
+it('creates a translation and no item or card for an underline_translate mark');
 it('adds a sighting and no card when the model says the meaning is the same');
 it('adds a new sense and card to the item when the meaning differs');
 it('sends existing senses for that normal form to the model');
 it('creates one item, sense and card when a word is marked twice on a page');
-it('handles a word mark inside a single-lined sentence as two separate results');
+it('handles a curly or added word mark inside an underlined sentence as two separate results');
 it('resolves normal_form and sentence from the photo for added and retyped marks');
 it('treats a result with a missing mark ID or an unknown sense ID as invalid output');
 it('creates no duplicates when the job runs twice');
@@ -735,6 +737,7 @@ it('does not enlarge a small image');
 it('shows a clear error when the browser cannot read the file');
 it('disables Confirm while any mark is unclear');
 it('changes a mark type when tapped');
+it('shows a save switch on every underline and none on curly marks');
 it('adds a typed mark with the chosen type');
 it('shows the retake message when the page failed as unusable');
 it('shows Retry on any other failed page');

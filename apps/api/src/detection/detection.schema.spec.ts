@@ -1,7 +1,7 @@
 import { detectionResultSchema } from './detection.schema.js';
 
 const mark = (overrides: Record<string, unknown> = {}) => ({
-  type: 'double',
+  type: 'underline_save',
   text: '사과를',
   normal_form: '사과',
   sentence: '사과를 먹었다.',
@@ -16,13 +16,13 @@ const result = (marks: unknown[], overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('detectionResultSchema', () => {
-  it.each(['double', 'curly'])('accepts a %s mark with a normal form', (type) => {
+  it.each(['underline_save', 'curly'])('accepts a %s mark with a normal form', (type) => {
     expect(detectionResultSchema.safeParse(result([mark({ type })])).success).toBe(true);
   });
 
-  it('accepts a single mark with a null normal form', () => {
-    const single = mark({ type: 'single', normal_form: null });
-    expect(detectionResultSchema.safeParse(result([single])).success).toBe(true);
+  it('accepts an underline_translate mark with a null normal form', () => {
+    const translate = mark({ type: 'underline_translate', normal_form: null });
+    expect(detectionResultSchema.safeParse(result([translate])).success).toBe(true);
   });
 
   it('accepts an unclear mark with or without a normal form', () => {
@@ -32,8 +32,8 @@ describe('detectionResultSchema', () => {
     }
   });
 
-  it('rejects any other mark type', () => {
-    expect(detectionResultSchema.safeParse(result([mark({ type: 'wavy' })])).success).toBe(false);
+  it.each(['wavy', 'double', 'single'])('rejects the %s mark type', (type) => {
+    expect(detectionResultSchema.safeParse(result([mark({ type })])).success).toBe(false);
   });
 
   it('requires problem text when photo_usable is false', () => {
@@ -43,15 +43,15 @@ describe('detectionResultSchema', () => {
     expect(detectionResultSchema.safeParse(present).success).toBe(true);
   });
 
-  it.each(['double', 'curly'])('requires normal_form on a %s mark', (type) => {
+  it.each(['underline_save', 'curly'])('requires normal_form on a %s mark', (type) => {
     for (const normal_form of [null, '   ']) {
       const invalid = mark({ type, normal_form });
       expect(detectionResultSchema.safeParse(result([invalid])).success).toBe(false);
     }
   });
 
-  it('requires a null normal_form on a single mark', () => {
-    const invalid = mark({ type: 'single', normal_form: '사과' });
+  it('requires a null normal_form on an underline_translate mark', () => {
+    const invalid = mark({ type: 'underline_translate', normal_form: '사과' });
     expect(detectionResultSchema.safeParse(result([invalid])).success).toBe(false);
   });
 
