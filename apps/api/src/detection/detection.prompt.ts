@@ -15,7 +15,10 @@ Rules:
 - A line that continues onto the next printed line is one mark.
 - A wavy line can sit inside or under an underlined complete sentence, even when it interrupts the straight line. Report the whole sentence as "underline_translate" and the wavy part as a separate "curly" mark.
 - Ignore printed underlines, printed decoration, stains, and shadows from the page curve.
-- Copy text exactly as printed, covering only the marked characters.
+- Pencil can be very faint, especially on grey or coloured boxes. Look closely for light lines there before deciding text is unmarked.
+- Follow each line to its very end before deciding what it covers. Do not stop at the end of a word or phrase when the line keeps going.
+- Readers draw lines under text. A line between two printed lines belongs to the text above it. Report it once.
+- Copy text exactly as printed, and report whole words. If a line covers more than half of a word, include the whole word. If it covers less than half, leave that word out.
 
 For each mark return:
 - type: "underline_save", "underline_translate", "curly" or "unclear".

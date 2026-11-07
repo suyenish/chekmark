@@ -18,8 +18,11 @@ The photos stay out of the repository (`private-test-data/`, gitignored).
 | Dry run, invented page with 6 marks | 100% | 100% | 100% | 100% | $0.0014 |
 | Haiku 5.5, run 1 | 70.7% | 81.1% | n/a | 90.9% | $0.0022 |
 | Haiku 5.5, run 2, corrected key | 65.3% | 73.6% | 100% | 81.8% | $0.0021 |
+| Haiku 5.5, run 3, new prompt rules | 74.7% | 88.7% | 0% | 81.8% | $0.0022 |
 
 Target: 90% overall, and no type below 80%. Overall accuracy counts extra marks against the score: correct ÷ (expected + extra).
+
+Run 3 added four prompt rules: whole words, follow each line to its end, a line between two printed lines belongs to the text above, and look for faint pencil. They came from these same 7 pages, so the gain needs confirming on new pages. There is only one sentence underline, so that column swings between 0% and 100%.
 
 Run 2 used a corrected answer key: one sentence split into a curly mark and a sentence underline, one underline split in two, and one word fixed. Some of its marks still differ from the key only by a final full stop.
 
@@ -46,7 +49,7 @@ Done correctly every time: printed red wavy lines and yellow highlights in the b
 
 ## Next
 
-- **Prompt:** add rules for whole words, marks that run to the end of the text, one line between two printed lines, and faint pencil.
+- **Prompt:** check the run 3 rules on new pages. Misreadings such as `펑펑` and the split `비록 신` sentence remain.
 - **More test pages:** add volunteers' pages, hold back 10, and rerun.
 - **Sonnet:** try Sonnet 5.5 on the same set.
 - **Scoring:** decide whether it should ignore a final full stop.
