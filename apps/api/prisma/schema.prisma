@@ -1,0 +1,251 @@
+// Data model from spec section 8, plus the additions in the plan's "Decisions Added by This Plan".
+// Tables and columns use snake_case in PostgreSQL and camelCase in TypeScript.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum PageStatus {
+  UPLOADED
+  DETECTING
+  AWAITING_CHECK
+  EXPLAINING
+  DONE
+  FAILED
+}
+
+enum FailedStage {
+  DETECTING
+  EXPLAINING
+}
+
+enum MarkType {
+  underline_save
+  underline_translate
+  curly
+  unclear
+}
+
+enum MarkSource {
+  detected
+  corrected
+  added
+}
+
+enum ItemKind {
+  word
+  grammar
+}
+
+enum Rating {
+  again
+  hard
+  easy
+}
+
+model User {
+  id                  String   @id @default(uuid()) @db.Uuid
+  email               String   @unique
+  explanationLanguage String   @default("en") @map("explanation_language")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  books    Book[]
+  items    Item[]
+  aiCalls  AiCall[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+/// A one-time sign-in link. Only a hash of the token is stored.
+model LoginToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  email     String
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([email, createdAt])
+  @@map("login_tokens")
+}
+
+model Session {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Book {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  title          String
+  sourceLanguage String   @default("ko") @map("source_language")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pages Page[]
+
+  @@index([userId])
+  @@map("books")
+}
+
+model Page {
+  id              String       @id @default(uuid()) @db.Uuid
+  bookId          String       @map("book_id") @db.Uuid
+  pageNumber      Int?         @map("page_number")
+  photoKey        String       @map("photo_key")
+  status          PageStatus   @default(UPLOADED)
+  statusChangedAt DateTime     @default(now()) @map("status_changed_at")
+  failedStage     FailedStage? @map("failed_stage")
+  failureReason   String?      @map("failure_reason")
+  /// The model's raw detection output, kept to compare with what the reader confirmed.
+  detectionResult Json?        @map("detection_result")
+  photoDeletedAt  DateTime?    @map("photo_deleted_at")
+  createdAt       DateTime     @default(now()) @map("created_at")
+
+  book         Book          @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  marks        Mark[]
+  sightings    Sighting[]
+  translations Translation[]
+  aiCalls      AiCall[]
+
+  @@index([bookId])
+  @@index([status, statusChangedAt])
+  @@map("pages")
+}
+
+model Mark {
+  id         String     @id @default(uuid()) @db.Uuid
+  pageId     String     @map("page_id") @db.Uuid
+  type       MarkType
+  text       String
+  normalForm String?    @map("normal_form")
+  sentence   String?
+  /// The box [left, top, right, bottom] scaled 0–1000, or null.
+  position   Json?
+  source     MarkSource
+  order      Int
+
+  page        Page         @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  sighting    Sighting?
+  translation Translation?
+
+  @@index([pageId, order])
+  @@map("marks")
+}
+
+model Item {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  kind       ItemKind
+  language   String
+  normalForm String   @map("normal_form")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  senses Sense[]
+
+  @@unique([userId, kind, language, normalForm])
+  @@map("items")
+}
+
+model Sense {
+  id                 String   @id @default(uuid()) @db.Uuid
+  itemId             String   @map("item_id") @db.Uuid
+  meaning            String
+  notes              String?
+  example            String?
+  exampleTranslation String?  @map("example_translation")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  item      Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  sightings Sighting[]
+  card      Card?
+
+  @@index([itemId])
+  @@map("senses")
+}
+
+model Sighting {
+  id                  String   @id @default(uuid()) @db.Uuid
+  senseId             String   @map("sense_id") @db.Uuid
+  pageId              String   @map("page_id") @db.Uuid
+  markId              String   @unique @map("mark_id") @db.Uuid
+  sentence            String
+  sentenceTranslation String?  @map("sentence_translation")
+  createdAt           DateTime @default(now()) @map("created_at")
+
+  sense Sense  @relation(fields: [senseId], references: [id], onDelete: Cascade)
+  page  Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  mark  Mark   @relation(fields: [markId], references: [id], onDelete: Cascade)
+  cards Card[]
+
+  @@index([senseId])
+  @@index([pageId])
+  @@map("sightings")
+}
+
+model Translation {
+  id             String @id @default(uuid()) @db.Uuid
+  pageId         String @map("page_id") @db.Uuid
+  markId         String @unique @map("mark_id") @db.Uuid
+  translatedText String @map("translated_text")
+
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  mark Mark @relation(fields: [markId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+  @@map("translations")
+}
+
+model Card {
+  id           String   @id @default(uuid()) @db.Uuid
+  senseId      String   @unique @map("sense_id") @db.Uuid
+  /// The sighting the card shows. Kept as null if that page is deleted, so the card survives.
+  sightingId   String?  @map("sighting_id") @db.Uuid
+  dueAt        DateTime @map("due_at")
+  intervalDays Float    @default(0) @map("interval_days")
+  ease         Float    @default(2.5)
+  lastRating   Rating?  @map("last_rating")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  sense    Sense     @relation(fields: [senseId], references: [id], onDelete: Cascade)
+  sighting Sighting? @relation(fields: [sightingId], references: [id], onDelete: SetNull)
+
+  @@index([dueAt])
+  @@map("cards")
+}
+
+model AiCall {
+  id           String         @id @default(uuid()) @db.Uuid
+  userId       String?        @map("user_id") @db.Uuid
+  pageId       String?        @map("page_id") @db.Uuid
+  purpose      String
+  model        String
+  inputTokens  Int            @map("input_tokens")
+  outputTokens Int            @map("output_tokens")
+  cost         Decimal        @db.Decimal(12, 6)
+  durationMs   Int            @map("duration_ms")
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  page Page? @relation(fields: [pageId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@map("ai_calls")
+}
