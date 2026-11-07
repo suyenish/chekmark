@@ -77,7 +77,7 @@ The app shows the photo with each detected mark highlighted and colour-coded, ne
 
 The app cannot continue until every `unclear` mark has been resolved.
 
-The list is the reliable fallback. If Stage 0 shows that highlight positions are inaccurate, the first version uses the list as the main view and shows the photo without highlights.
+The list is the reliable fallback. If Stage 0 shows that highlight positions are inaccurate, the first version uses the list as the main view and shows the photo without highlights. The first mark test returned some invalid positions, so the first version uses the list as the main view.
 
 ### 6.2 Results
 
@@ -258,7 +258,7 @@ Page status moves through:
 
 ## 12. Stages
 
-Each stage must pass before the next one starts. The targets are starting points chosen for this project, not industry benchmarks.
+Each stage must pass before the next one starts, except Stage 0 (see below). The targets are starting points chosen for this project, not industry benchmarks.
 
 | Stage | Work | Pass condition |
 |---|---|---|
@@ -268,7 +268,11 @@ Each stage must pass before the next one starts. The targets are starting points
 | **3. Willingness to pay** | Ask active users to pay, using a simple payment link or manual transfer | At least 3 pay, at a price above the measured cost per user |
 | **4. Paid product** | Add payments, public sign-up and Anki export | Decide on company registration and support programmes using the results |
 
-If Stage 0 fails, change the marks or the detection method before writing product code.
+**Decision, 7 November 2026:** the first mark test scored 65–71% on 7 real pages, and results varied between runs. The founder chose to build Stage 1 anyway, because the first goal is a working, deployed portfolio project and the Mark check lets the reader fix what the AI gets wrong. So Stage 0 no longer blocks product code:
+
+- The mark test keeps running as pages arrive, and the results are recorded in `docs/stage-0-results.md`.
+- The Stage 0 pass condition becomes a target that must be met before Stage 3 (willingness to pay).
+- The app is labelled beta, and the Mark check is a required step that tells the reader marks may be wrong.
 
 The first implementation plan covers **Stage 1 only**.
 

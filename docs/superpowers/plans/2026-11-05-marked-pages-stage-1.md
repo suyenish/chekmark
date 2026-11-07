@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Prove that pencil marks can be read from phone photos, then build and deploy the personal version of the app.
+**Goal:** Measure how well pencil marks can be read from phone photos, then build and deploy the personal version of the app.
 
 **Architecture:** One NestJS codebase starts as an API process and a worker process. PostgreSQL is the source of truth, BullMQ on Redis holds pending work, and S3-compatible storage holds photos. A small React app is the phone-first frontend.
 
@@ -13,6 +13,7 @@
 ## Global Constraints
 
 - Marks: straight underline on a word, phrase or part of a sentence = `underline_save`, saved; straight underline on one or more complete sentences = `underline_translate`, not saved; curly line = `curly`, grammar, saved. The reader can switch saving on or off for any underline in the Mark check.
+- The web app is labelled beta. The Mark check is required and tells the reader that marks may be wrong.
 - The app never guesses an unclear mark. It stores `unclear`, and the reader must resolve it before confirming.
 - First version: Korean books, English explanations, TOPIK 3–4 level, one photo at a time.
 - Daily limit: 5 pages per user, as a setting. Photos that cannot be used do not count.
@@ -192,7 +193,7 @@ git add .
 git commit -m "feat: add mark test tool and AI client"
 ```
 
-### Task 2: Run the mark test (gate)
+### Task 2: Run the mark test
 
 **Files:**
 - Create: `docs/stage-0-results.md`
@@ -227,10 +228,10 @@ Choose `highlights` if the boxes clearly identify the right marks on at least 90
 
 Include the scores, cost per page, chosen model, Mark check view and the most common errors.
 
-- [ ] **Step 7: Apply the gate**
+- [ ] **Step 7: Compare with the target**
 
-Pass: overall accuracy is at least 90% and no mark type is below 80%.
-If it fails: **stop here**. Change the prompt, the marks or the detection method, then rerun this task. Do not start Task 3.
+Target: overall accuracy is at least 90% and no mark type is below 80%.
+Changed on 7 November 2026 (spec section 12): the target no longer blocks Task 3. Record the result and continue. Keep rerunning the test as more pages arrive, and meet the target before Stage 3.
 
 - [ ] **Step 8: Commit**
 
