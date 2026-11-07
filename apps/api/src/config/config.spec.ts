@@ -13,6 +13,10 @@ describe('loadConfig', () => {
       aiOutputCostPerMtok: 0.5,
       aiMonthlyBudgetUsd: 20,
       dailyPageLimit: 5,
+      allowedEmails: [],
+      appUrl: 'http://localhost:5173',
+      smtpUrl: null,
+      mailFrom: 'Chekmark <no-reply@localhost>',
     });
   });
 
@@ -45,5 +49,25 @@ describe('loadConfig', () => {
 
   it('treats an empty value as not set', () => {
     expect(loadConfig({ DATABASE_URL, AI_MODEL: '' }).aiModel).toBe('claude-haiku-5-5');
+  });
+
+  it('reads ALLOWED_EMAILS as a lower-case list, ignoring spaces and empty entries', () => {
+    const config = loadConfig({ DATABASE_URL, ALLOWED_EMAILS: ' Me@Example.com, friend@example.com ,, ' });
+    expect(config.allowedEmails).toEqual(['me@example.com', 'friend@example.com']);
+  });
+
+  it('rejects an address in ALLOWED_EMAILS that is not an email', () => {
+    expect(() => loadConfig({ DATABASE_URL, ALLOWED_EMAILS: 'me@example.com,nobody' })).toThrow(/ALLOWED_EMAILS/);
+  });
+
+  it('drops a trailing slash from APP_URL, so links do not get a double slash', () => {
+    expect(loadConfig({ DATABASE_URL, APP_URL: 'https://chekmark.example/' }).appUrl).toBe('https://chekmark.example');
+  });
+
+  it('requires SMTP_URL in production, because a sign-in link that is only logged reaches nobody', () => {
+    expect(() => loadConfig({ DATABASE_URL, NODE_ENV: 'production' })).toThrow(/SMTP_URL/);
+    expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465' }).smtpUrl).toBe(
+      'smtps://u:p@smtp.example:465',
+    );
   });
 });

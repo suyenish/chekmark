@@ -15,6 +15,23 @@ const envSchema = z.object({
   AI_OUTPUT_COST_PER_MTOK: positive(0.5),
   AI_MONTHLY_BUDGET_USD: positive(20),
   DAILY_PAGE_LIMIT: wholeNumber(5),
+  /** Comma-separated. During Stage 1 only these addresses can sign in. */
+  ALLOWED_EMAILS: text(
+    z
+      .string()
+      .default('')
+      .transform((list) => list.split(',').map((email) => email.trim().toLowerCase()).filter(Boolean))
+      .pipe(z.array(z.email())),
+  ),
+  /** Where the web app runs. Sign-in links point here. */
+  APP_URL: text(z.url().default('http://localhost:5173').transform((url) => url.replace(/\/+$/, ''))),
+  /** For example smtps://user:password@smtp.example.com:465. Without it, links are only logged. */
+  SMTP_URL: text(z.string().regex(/^smtps?:\/\//, 'must be an smtp:// or smtps:// address').optional()),
+  MAIL_FROM: text(z.string().default('Chekmark <no-reply@localhost>')),
+}).superRefine((env, ctx) => {
+  if (env.NODE_ENV === 'production' && !env.SMTP_URL) {
+    ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'is required in production, so sign-in links reach people' });
+  }
 });
 
 export type AppConfig = ReturnType<typeof toConfig>;
@@ -42,5 +59,9 @@ function toConfig(env: z.infer<typeof envSchema>) {
     aiOutputCostPerMtok: env.AI_OUTPUT_COST_PER_MTOK,
     aiMonthlyBudgetUsd: env.AI_MONTHLY_BUDGET_USD,
     dailyPageLimit: env.DAILY_PAGE_LIMIT,
+    allowedEmails: env.ALLOWED_EMAILS,
+    appUrl: env.APP_URL,
+    smtpUrl: env.SMTP_URL ?? null,
+    mailFrom: env.MAIL_FROM,
   };
 }
