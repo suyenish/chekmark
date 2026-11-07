@@ -1,4 +1,5 @@
-import { detectionResultSchema } from './detection.schema.js';
+import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
+import { detectionResultSchema, dropInvalidBoxes } from './detection.schema.js';
 
 const mark = (overrides: Record<string, unknown> = {}) => ({
   type: 'underline_save',
@@ -65,7 +66,16 @@ describe('detectionResultSchema', () => {
     ['a negative value', [-1, 0, 10, 10]],
     ['left past right', [50, 0, 10, 10]],
     ['top past bottom', [0, 50, 10, 10]],
-  ])('rejects a box with %s', (_name, box) => {
-    expect(detectionResultSchema.safeParse(result([mark({ box })])).success).toBe(false);
+  ])('keeps the mark but drops a box with %s, because the box only draws the report', (_name, box) => {
+    const parsed = detectionResultSchema.parse(result([mark({ box })]));
+    expect(dropInvalidBoxes(parsed).marks[0]).toMatchObject({ text: '사과를', box: null });
+  });
+
+  it('keeps a valid box', () => {
+    expect(dropInvalidBoxes(detectionResultSchema.parse(result([mark()]))).marks[0].box).toEqual([10, 20, 30, 40]);
+  });
+
+  it('can still be sent to the API as a JSON schema', () => {
+    expect(() => zodOutputFormat(detectionResultSchema)).not.toThrow();
   });
 });

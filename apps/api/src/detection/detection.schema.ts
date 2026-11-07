@@ -38,13 +38,6 @@ const markSchema = z
     if (mark.type === 'underline_translate' && mark.normal_form !== null) {
       ctx.addIssue({ code: 'custom', path: ['normal_form'], message: 'normal_form must be null on an underline_translate mark' });
     }
-    if (mark.box !== null && !isValidBox(mark.box)) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['box'],
-        message: 'box must be [left, top, right, bottom], each 0–1000, with left <= right and top <= bottom',
-      });
-    }
   });
 
 function isValidBox(box: number[]): boolean {
@@ -64,3 +57,14 @@ export const detectionResultSchema = z
       ctx.addIssue({ code: 'custom', path: ['problem'], message: 'problem is required when photo_usable is false' });
     }
   }) as unknown as z.ZodType<DetectionResult>;
+
+/**
+ * A bad box only spoils the report drawing, so it becomes null instead of failing the whole page.
+ * This runs after parsing because a Zod transform cannot be sent to the API as a JSON schema.
+ */
+export function dropInvalidBoxes(result: DetectionResult): DetectionResult {
+  return {
+    ...result,
+    marks: result.marks.map((mark) => (mark.box === null || isValidBox(mark.box) ? mark : { ...mark, box: null })),
+  };
+}
