@@ -9,7 +9,7 @@ import sharp from 'sharp';
 import { AiOutputInvalidError, AiTransientError } from '../src/ai/ai-client.js';
 import { ClaudeAiClient } from '../src/ai/claude-ai-client.js';
 import { DETECTION_SYSTEM_PROMPT, DETECTION_USER_PROMPT } from '../src/detection/detection.prompt.js';
-import { detectionResultSchema, type DetectedMark } from '../src/detection/detection.schema.js';
+import { detectionResultSchema, dropInvalidBoxes, type DetectedMark } from '../src/detection/detection.schema.js';
 import {
   calculateCost,
   parseAnswers,
@@ -75,7 +75,7 @@ async function main(): Promise<void> {
         schema: detectionResultSchema,
         imageJpeg: await preparePhoto(file),
       });
-      return result.photo_usable ? { marks: result.marks } : { marks: [], error: `Photo not usable: ${result.problem}` };
+      return result.photo_usable ? { marks: dropInvalidBoxes(result).marks } : { marks: [], error: `Photo not usable: ${result.problem}` };
     } catch (error) {
       if (error instanceof AiOutputInvalidError || error instanceof AiTransientError) {
         return { marks: [], error: error.message };

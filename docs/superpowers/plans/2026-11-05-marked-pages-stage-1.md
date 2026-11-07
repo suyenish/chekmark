@@ -208,6 +208,8 @@ Include curved pages, poor light, short words, very short sentences, underlines 
 
 - [ ] **Step 2: Photograph the pages normally and put them in `private-test-data/`**
 
+Put each person's originals in `private-test-data/inbox/<person>/`, then run `corepack pnpm --filter api intake`. It converts them to JPEG, names them like `person1-01.jpg`, removes metadata including location, and skips exact duplicates. It's safe to run again as more photos arrive. Before the first draft, add `--hold-back 10` to keep 10 pages in `private-test-data/held-back/` for a fair check after any prompt change.
+
 - [ ] **Step 3: Create `private-test-data/answers.json`**
 
 Run the `--draft` command, then correct every entry while looking at the page. Check all of it, because the draft can miss marks or get them wrong.

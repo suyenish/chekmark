@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "mark-test": "tsx --env-file-if-exists=../../.env scripts/mark-test.ts"
+    "mark-test": "tsx --env-file-if-exists=../../.env scripts/mark-test.ts",
+    "intake": "tsx scripts/intake-photos.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.5.0",
