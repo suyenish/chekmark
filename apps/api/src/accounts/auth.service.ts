@@ -1,0 +1,70 @@
+import { createHash, randomBytes } from 'node:crypto';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { APP_CONFIG, type AppConfig } from '../config/config.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+import { MAILER, type Mailer } from './mailer.js';
+
+export const LINK_LIFETIME_MS = 15 * 60 * 1000;
+export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+
+export interface SignedInUser {
+  id: string;
+  email: string;
+}
+
+/** Only hashes reach the database, so a leaked table cannot be used to sign in. */
+export const hashSecret = (secret: string) => createHash('sha256').update(secret).digest('hex');
+const newSecret = () => randomBytes(32).toString('base64url');
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+    @Inject(MAILER) private readonly mailer: Mailer,
+  ) {}
+
+  /** Sends a link only to allowed addresses, but the caller cannot tell which happened. */
+  async requestLink(email: string): Promise<void> {
+    if (!this.config.allowedEmails.includes(email)) return;
+    const token = newSecret();
+    const createdAt = new Date();
+    await this.prisma.loginToken.create({
+      data: { email, tokenHash: hashSecret(token), createdAt, expiresAt: new Date(createdAt.getTime() + LINK_LIFETIME_MS) },
+    });
+    await this.mailer.sendSignInLink(email, `${this.config.appUrl}/sign-in?token=${encodeURIComponent(token)}`);
+  }
+
+  /** Uses up the token and starts a session. Returns the session ID for the cookie. */
+  async verify(token: string): Promise<{ user: SignedInUser; sessionId: string }> {
+    const now = new Date();
+    // One conditional update, so two simultaneous requests cannot both use the same token.
+    const [used] = await this.prisma.loginToken.updateManyAndReturn({
+      where: { tokenHash: hashSecret(token), usedAt: null, expiresAt: { gt: now } },
+      data: { usedAt: now },
+    });
+    if (!used) throw new UnauthorizedException('This sign-in link is invalid, used or expired. Ask for a new one.');
+
+    const sessionId = newSecret();
+    const user = await this.prisma.$transaction(async (tx) => {
+      const found = await tx.user.upsert({ where: { email: used.email }, create: { email: used.email }, update: {} });
+      await tx.session.create({
+        data: { userId: found.id, tokenHash: hashSecret(sessionId), expiresAt: new Date(now.getTime() + SESSION_LIFETIME_MS) },
+      });
+      return found;
+    });
+    return { user: { id: user.id, email: user.email }, sessionId };
+  }
+
+  async findSessionUser(sessionId: string): Promise<SignedInUser | null> {
+    const session = await this.prisma.session.findFirst({
+      where: { tokenHash: hashSecret(sessionId), expiresAt: { gt: new Date() } },
+      include: { user: true },
+    });
+    return session ? { id: session.user.id, email: session.user.email } : null;
+  }
+
+  async logout(sessionId: string): Promise<void> {
+    await this.prisma.session.deleteMany({ where: { tokenHash: hashSecret(sessionId) } });
+  }
+}
