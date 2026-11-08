@@ -35,6 +35,8 @@ const envSchema = z.object({
   /** Leave both empty to use the host's own AWS credentials. */
   S3_ACCESS_KEY_ID: text(z.string().optional()),
   S3_SECRET_ACCESS_KEY: text(z.string().optional()),
+  /** Redis for the job queue. Page status lives in PostgreSQL, so Redis data can be lost safely. */
+  REDIS_URL: text(z.string().regex(/^rediss?:\/\//, 'must be a redis:// or rediss:// address').default('redis://localhost:6379')),
 }).superRefine((env, ctx) => {
   if (env.S3_ACCESS_KEY_ID && !env.S3_SECRET_ACCESS_KEY) {
     ctx.addIssue({ code: 'custom', path: ['S3_SECRET_ACCESS_KEY'], message: 'is required when S3_ACCESS_KEY_ID is set' });
@@ -81,5 +83,6 @@ function toConfig(env: z.infer<typeof envSchema>) {
     s3Bucket: env.S3_BUCKET,
     s3AccessKeyId: env.S3_ACCESS_KEY_ID ?? null,
     s3SecretAccessKey: env.S3_SECRET_ACCESS_KEY ?? null,
+    redisUrl: env.REDIS_URL,
   };
 }

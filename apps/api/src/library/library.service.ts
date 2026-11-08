@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { Book, Page } from '../generated/prisma/client.js';
+import { PAGE_QUEUE, type PageQueue } from '../jobs/queues.js';
 import { PHOTO_STORE, PhotoNotFoundError, type PhotoStore, pagePhotoKey } from '../photos/photo-store.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -14,9 +15,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 @Injectable()
 export class LibraryService {
+  private readonly logger = new Logger(LibraryService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PHOTO_STORE) private readonly photos: PhotoStore,
+    @Inject(PAGE_QUEUE) private readonly queue: PageQueue,
   ) {}
 
   async listBooks(userId: string): Promise<BookWithPageCount[]> {
@@ -56,18 +60,27 @@ export class LibraryService {
     return this.prisma.page.findMany({ where: { bookId }, orderBy: [{ pageNumber: 'asc' }, { createdAt: 'asc' }] });
   }
 
-  /** Stores the photo, then the page. The caller has already checked that `jpeg` is a JPEG. */
+  /**
+   * Stores the photo, then the page, then queues detection. The caller has
+   * already checked that `jpeg` is a JPEG. If the queue is down the page is
+   * still saved: it waits in UPLOADED until the stuck-page check queues it.
+   */
   async createPage(userId: string, bookId: string, pageNumber: number, jpeg: Buffer): Promise<Page> {
     await this.getBook(userId, bookId);
     const id = randomUUID();
     const photoKey = pagePhotoKey(userId, id);
     await this.photos.put(photoKey, jpeg);
+    let page: Page;
     try {
-      return await this.prisma.page.create({ data: { id, bookId, pageNumber, photoKey } });
+      page = await this.prisma.page.create({ data: { id, bookId, pageNumber, photoKey } });
     } catch (error) {
       await this.photos.delete(photoKey).catch(() => undefined);
       throw error;
     }
+    await this.queue.enqueueDetection(page.id).catch((error: unknown) => {
+      this.logger.warn(`Page ${page.id} saved but not queued; the stuck-page check will queue it: ${String(error)}`);
+    });
+    return page;
   }
 
   async getPage(userId: string, pageId: string): Promise<Page> {
