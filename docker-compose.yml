@@ -17,5 +17,21 @@ services:
       timeout: 3s
       retries: 10
 
+  # S3-compatible storage for page photos. The API creates the bucket on start in development.
+  # SeaweedFS, because MinIO no longer publishes Docker images.
+  photos:
+    image: chrislusf/seaweedfs:4.50 # same version as the test storage
+    command: server -s3 -dir=/data -ip.bind=0.0.0.0
+    ports:
+      - "8333:8333"
+    volumes:
+      - photos-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8333/status || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   postgres-data:
+  photos-data:

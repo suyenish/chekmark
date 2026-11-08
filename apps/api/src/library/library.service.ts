@@ -1,0 +1,89 @@
+import { randomUUID } from 'node:crypto';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import type { Book, Page } from '../generated/prisma/client.js';
+import { PHOTO_STORE, PhotoNotFoundError, type PhotoStore, pagePhotoKey } from '../photos/photo-store.js';
+import { PrismaService } from '../prisma/prisma.service.js';
+
+export type BookWithPageCount = Book & { pageCount: number };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Books and their pages. Every method takes the signed-in user's ID and treats
+ * someone else's book or page exactly like one that does not exist (404).
+ */
+@Injectable()
+export class LibraryService {
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(PHOTO_STORE) private readonly photos: PhotoStore,
+  ) {}
+
+  async listBooks(userId: string): Promise<BookWithPageCount[]> {
+    const books = await this.prisma.book.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      include: { _count: { select: { pages: true } } },
+    });
+    return books.map(({ _count, ...book }) => ({ ...book, pageCount: _count.pages }));
+  }
+
+  createBook(userId: string, title: string): Promise<Book> {
+    return this.prisma.book.create({ data: { userId, title } });
+  }
+
+  async getBook(userId: string, bookId: string): Promise<Book> {
+    const book = UUID.test(bookId) ? await this.prisma.book.findFirst({ where: { id: bookId, userId } }) : null;
+    if (!book) throw new NotFoundException('Book not found');
+    return book;
+  }
+
+  async renameBook(userId: string, bookId: string, title: string): Promise<Book> {
+    await this.getBook(userId, bookId);
+    return this.prisma.book.update({ where: { id: bookId }, data: { title } });
+  }
+
+  /** Deletes the photos first, so a failure never leaves a photo without a page pointing to it. */
+  async deleteBook(userId: string, bookId: string): Promise<void> {
+    await this.getBook(userId, bookId);
+    const pages = await this.prisma.page.findMany({ where: { bookId, photoDeletedAt: null }, select: { photoKey: true } });
+    await Promise.all(pages.map((page) => this.photos.delete(page.photoKey)));
+    await this.prisma.book.delete({ where: { id: bookId } });
+  }
+
+  async listPages(userId: string, bookId: string): Promise<Page[]> {
+    await this.getBook(userId, bookId);
+    return this.prisma.page.findMany({ where: { bookId }, orderBy: [{ pageNumber: 'asc' }, { createdAt: 'asc' }] });
+  }
+
+  /** Stores the photo, then the page. The caller has already checked that `jpeg` is a JPEG. */
+  async createPage(userId: string, bookId: string, pageNumber: number, jpeg: Buffer): Promise<Page> {
+    await this.getBook(userId, bookId);
+    const id = randomUUID();
+    const photoKey = pagePhotoKey(userId, id);
+    await this.photos.put(photoKey, jpeg);
+    try {
+      return await this.prisma.page.create({ data: { id, bookId, pageNumber, photoKey } });
+    } catch (error) {
+      await this.photos.delete(photoKey).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  async getPage(userId: string, pageId: string): Promise<Page> {
+    const page = UUID.test(pageId) ? await this.prisma.page.findFirst({ where: { id: pageId, book: { userId } } }) : null;
+    if (!page) throw new NotFoundException('Page not found');
+    return page;
+  }
+
+  async getPagePhoto(userId: string, pageId: string): Promise<Buffer> {
+    const page = await this.getPage(userId, pageId);
+    if (page.photoDeletedAt) throw new NotFoundException('This photo has been deleted');
+    try {
+      return await this.photos.get(page.photoKey);
+    } catch (error) {
+      if (error instanceof PhotoNotFoundError) throw new NotFoundException('Photo not found');
+      throw error;
+    }
+  }
+}
