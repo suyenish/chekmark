@@ -6,7 +6,7 @@ import {
   AiTransientError,
   type AiClient,
   type AiRequest,
-  type AiUsage,
+  type UsageListener,
 } from './ai-client.js';
 
 const MAX_TOKENS = 16000;
@@ -17,7 +17,7 @@ export class ClaudeAiClient implements AiClient {
   constructor(
     private readonly client: Anthropic,
     private readonly model: string,
-    private readonly onUsage?: (usage: AiUsage) => void,
+    private readonly onUsage?: UsageListener,
   ) {}
 
   async generate<T>(req: AiRequest<T>): Promise<T> {
@@ -34,7 +34,7 @@ export class ClaudeAiClient implements AiClient {
   private async attempt<T>(req: AiRequest<T>, prompt: string): Promise<Parsed<T>> {
     const startedAt = Date.now();
     const response = await this.send(req, prompt);
-    this.onUsage?.({
+    await this.onUsage?.({
       purpose: req.purpose,
       model: this.model,
       inputTokens: response.usage.input_tokens,

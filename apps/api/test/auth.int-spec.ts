@@ -9,6 +9,8 @@ import { PrismaService } from '../src/prisma/prisma.service.js';
 import { startTestDb } from './helpers/test-db.js';
 
 const ALLOWED = 'reader@example.com';
+/** Nothing listens here, so these tests never touch a developer's local Redis. */
+const NO_REDIS = 'redis://127.0.0.1:1';
 const sha256 = (value: string) => createHash('sha256').update(value).digest('hex');
 
 describe('sign-in with one-time links', () => {
@@ -21,7 +23,7 @@ describe('sign-in with one-time links', () => {
     db = await startTestDb();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue(loadConfig({ NODE_ENV: 'test', DATABASE_URL: db.url, ALLOWED_EMAILS: `${ALLOWED}, second@example.com` }))
+      .useValue(loadConfig({ NODE_ENV: 'test', DATABASE_URL: db.url, ALLOWED_EMAILS: `${ALLOWED}, second@example.com`, REDIS_URL: NO_REDIS }))
       .overrideProvider(MAILER)
       .useValue(mailer)
       .compile();
@@ -173,7 +175,7 @@ describe('sign-in in production', () => {
     const mailer = new LogMailer();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue(loadConfig({ NODE_ENV: 'production', DATABASE_URL: db.url, ALLOWED_EMAILS: ALLOWED, SMTP_URL: 'smtp://localhost:2525' }))
+      .useValue(loadConfig({ NODE_ENV: 'production', DATABASE_URL: db.url, ALLOWED_EMAILS: ALLOWED, SMTP_URL: 'smtp://localhost:2525', ANTHROPIC_API_KEY: 'test-key', REDIS_URL: NO_REDIS }))
       .overrideProvider(MAILER)
       .useValue(mailer)
       .compile();

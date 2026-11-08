@@ -118,4 +118,16 @@ describe('ClaudeAiClient', () => {
     });
     expect(usage.mock.calls[0][0].durationMs).toBeGreaterThanOrEqual(0);
   });
+
+  it('waits for the usage callback, so the call is logged before the result is used', async () => {
+    const create = vi.fn().mockResolvedValue(reply('{"answer":"yes"}'));
+    const order: string[] = [];
+    const client = new ClaudeAiClient({ messages: { create } } as unknown as Anthropic, 'test-model', async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      order.push('logged');
+    });
+    await client.generate(request);
+    order.push('returned');
+    expect(order).toEqual(['logged', 'returned']);
+  });
 });

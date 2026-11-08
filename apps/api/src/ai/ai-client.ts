@@ -12,6 +12,12 @@ export interface AiRequest<T> {
   pageId?: string;
 }
 
+/** Nest injection token for the AiClient. */
+export const AI_CLIENT = Symbol('AI_CLIENT');
+
+/** Called after every model call, including retries. The client waits for it. */
+export type UsageListener = (usage: AiUsage) => void | Promise<void>;
+
 export interface AiClient {
   generate<T>(req: AiRequest<T>): Promise<T>;
 }
