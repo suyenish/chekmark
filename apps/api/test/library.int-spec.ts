@@ -4,8 +4,10 @@ import request from 'supertest';
 import { LogMailer, MAILER } from '../src/accounts/mailer.js';
 import { AppModule } from '../src/app.module.js';
 import { APP_CONFIG, loadConfig } from '../src/config/config.js';
+import { PAGE_QUEUE } from '../src/jobs/queues.js';
 import { PHOTO_STORE } from '../src/photos/photo-store.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
+import { FakePageQueue } from './helpers/fake-page-queue.js';
 import { MemoryPhotoStore } from './helpers/memory-photo-store.js';
 import { startTestDb } from './helpers/test-db.js';
 
@@ -23,6 +25,7 @@ describe('books, pages and photos', () => {
   let prisma: PrismaService;
   const mailer = new LogMailer();
   const photos = new MemoryPhotoStore();
+  const queue = new FakePageQueue();
   let owner: ReturnType<typeof request.agent>;
   let other: ReturnType<typeof request.agent>;
 
@@ -53,6 +56,8 @@ describe('books, pages and photos', () => {
       .useValue(mailer)
       .overrideProvider(PHOTO_STORE)
       .useValue(photos)
+      .overrideProvider(PAGE_QUEUE)
+      .useValue(queue)
       .compile();
     app = moduleRef.createNestApplication();
     await app.listen(0);
@@ -100,6 +105,7 @@ describe('books, pages and photos', () => {
     const row = await prisma.page.findUniqueOrThrow({ where: { id: response.body.id }, include: { book: true } });
     expect(row.photoKey).toBe(`users/${row.book.userId}/pages/${row.id}.jpg`);
     expect(photos.photos.get(row.photoKey)).toEqual(file);
+    expect(queue.detection).toContain(row.id);
 
     const photo = await owner.get(`/pages/${row.id}/photo`).expect(200);
     expect(photo.headers['content-type']).toBe('image/jpeg');

@@ -1,5 +1,5 @@
 # Local services for development. Start with: docker compose up -d
-# Redis, the API, the worker and the web app are added in later tasks.
+# The API, the worker and the web app are added in a later task.
 services:
   postgres:
     image: postgres:18-alpine # same major version as the test database
@@ -32,6 +32,22 @@ services:
       timeout: 3s
       retries: 10
 
+  # Job queue. Append-only persistence keeps waiting jobs across restarts.
+  # noeviction, because BullMQ must never have its keys removed to free memory.
+  redis:
+    image: redis:8-alpine # same image as the test Redis
+    command: redis-server --appendonly yes --maxmemory-policy noeviction
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
 volumes:
   postgres-data:
+  redis-data:
   photos-data:

@@ -22,6 +22,7 @@ describe('loadConfig', () => {
       s3Bucket: 'chekmark-photos',
       s3AccessKeyId: null,
       s3SecretAccessKey: null,
+      redisUrl: 'redis://localhost:6379',
     });
   });
 
@@ -101,5 +102,10 @@ describe('loadConfig', () => {
   it('needs both S3 keys or neither', () => {
     expect(() => loadConfig({ DATABASE_URL, S3_ACCESS_KEY_ID: 'key' })).toThrow(/S3_SECRET_ACCESS_KEY/);
     expect(() => loadConfig({ DATABASE_URL, S3_SECRET_ACCESS_KEY: 'secret' })).toThrow(/S3_ACCESS_KEY_ID/);
+  });
+
+  it('reads REDIS_URL and rejects one that is not a redis:// address', () => {
+    expect(loadConfig({ DATABASE_URL, REDIS_URL: 'rediss://cache.example:6380' }).redisUrl).toBe('rediss://cache.example:6380');
+    expect(() => loadConfig({ DATABASE_URL, REDIS_URL: 'http://localhost:6379' })).toThrow(/REDIS_URL/);
   });
 });
