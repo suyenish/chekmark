@@ -28,7 +28,20 @@ const envSchema = z.object({
   /** For example smtps://user:password@smtp.example.com:465. Without it, links are only logged. */
   SMTP_URL: text(z.string().regex(/^smtps?:\/\//, 'must be an smtp:// or smtps:// address').optional()),
   MAIL_FROM: text(z.string().default('Chekmark <no-reply@localhost>')),
+  /** S3-compatible photo storage. Leave S3_ENDPOINT empty for Amazon S3 itself. */
+  S3_ENDPOINT: text(z.url({ protocol: /^https?$/ }).optional()),
+  S3_REGION: text(z.string().default('us-east-1')),
+  S3_BUCKET: text(z.string().default('chekmark-photos')),
+  /** Leave both empty to use the host's own AWS credentials. */
+  S3_ACCESS_KEY_ID: text(z.string().optional()),
+  S3_SECRET_ACCESS_KEY: text(z.string().optional()),
 }).superRefine((env, ctx) => {
+  if (env.S3_ACCESS_KEY_ID && !env.S3_SECRET_ACCESS_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['S3_SECRET_ACCESS_KEY'], message: 'is required when S3_ACCESS_KEY_ID is set' });
+  }
+  if (env.S3_SECRET_ACCESS_KEY && !env.S3_ACCESS_KEY_ID) {
+    ctx.addIssue({ code: 'custom', path: ['S3_ACCESS_KEY_ID'], message: 'is required when S3_SECRET_ACCESS_KEY is set' });
+  }
   if (env.NODE_ENV === 'production' && !env.SMTP_URL) {
     ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'is required in production, so sign-in links reach people' });
   }
@@ -63,5 +76,10 @@ function toConfig(env: z.infer<typeof envSchema>) {
     appUrl: env.APP_URL,
     smtpUrl: env.SMTP_URL ?? null,
     mailFrom: env.MAIL_FROM,
+    s3Endpoint: env.S3_ENDPOINT ?? null,
+    s3Region: env.S3_REGION,
+    s3Bucket: env.S3_BUCKET,
+    s3AccessKeyId: env.S3_ACCESS_KEY_ID ?? null,
+    s3SecretAccessKey: env.S3_SECRET_ACCESS_KEY ?? null,
   };
 }

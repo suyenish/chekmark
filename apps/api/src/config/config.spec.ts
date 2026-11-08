@@ -17,6 +17,11 @@ describe('loadConfig', () => {
       appUrl: 'http://localhost:5173',
       smtpUrl: null,
       mailFrom: 'Chekmark <no-reply@localhost>',
+      s3Endpoint: null,
+      s3Region: 'us-east-1',
+      s3Bucket: 'chekmark-photos',
+      s3AccessKeyId: null,
+      s3SecretAccessKey: null,
     });
   });
 
@@ -69,5 +74,32 @@ describe('loadConfig', () => {
     expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465' }).smtpUrl).toBe(
       'smtps://u:p@smtp.example:465',
     );
+  });
+
+  it('reads the photo storage settings', () => {
+    const config = loadConfig({
+      DATABASE_URL,
+      S3_ENDPOINT: 'http://localhost:8333',
+      S3_REGION: 'ap-northeast-2',
+      S3_BUCKET: 'my-photos',
+      S3_ACCESS_KEY_ID: 'key',
+      S3_SECRET_ACCESS_KEY: 'secret',
+    });
+    expect(config).toMatchObject({
+      s3Endpoint: 'http://localhost:8333',
+      s3Region: 'ap-northeast-2',
+      s3Bucket: 'my-photos',
+      s3AccessKeyId: 'key',
+      s3SecretAccessKey: 'secret',
+    });
+  });
+
+  it('rejects an S3_ENDPOINT that is not a web address', () => {
+    expect(() => loadConfig({ DATABASE_URL, S3_ENDPOINT: 'localhost:8333' })).toThrow(/S3_ENDPOINT/);
+  });
+
+  it('needs both S3 keys or neither', () => {
+    expect(() => loadConfig({ DATABASE_URL, S3_ACCESS_KEY_ID: 'key' })).toThrow(/S3_SECRET_ACCESS_KEY/);
+    expect(() => loadConfig({ DATABASE_URL, S3_SECRET_ACCESS_KEY: 'secret' })).toThrow(/S3_ACCESS_KEY_ID/);
   });
 });
