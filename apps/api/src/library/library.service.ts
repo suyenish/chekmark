@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { HttpException, HttpStatus, Inject, Injectable, Logger, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
-import { DailyLimitReachedError, UsageService } from '../accounts/usage.service.js';
+import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { UsageService } from '../accounts/usage.service.js';
 import type { Book, Page } from '../generated/prisma/client.js';
 import { PAGE_QUEUE, type PageQueue } from '../jobs/queues.js';
 import { PHOTO_STORE, PhotoNotFoundError, type PhotoStore, pagePhotoKey } from '../photos/photo-store.js';
@@ -71,20 +71,14 @@ export class LibraryService {
   async createPage(userId: string, bookId: string, pageNumber: number, jpeg: Buffer): Promise<Page> {
     await this.getBook(userId, bookId);
     const now = new Date();
-    if (await this.usage.isBudgetReached(now)) {
-      await this.usage.alertBudgetReached(now);
-      throw new ServiceUnavailableException(
-        'New pages are paused for now because the app reached its monthly AI budget. Your saved words and reviews still work.',
-      );
-    }
-    await this.reserve(userId, now);
+    await this.usage.admitPage(userId, now);
 
     const id = randomUUID();
     const photoKey = pagePhotoKey(userId, id);
     let page: Page;
     try {
       await this.photos.put(photoKey, jpeg);
-      page = await this.prisma.page.create({ data: { id, bookId, pageNumber, photoKey, createdAt: now } });
+      page = await this.prisma.page.create({ data: { id, bookId, pageNumber, photoKey, createdAt: now, statusChangedAt: now } });
     } catch (error) {
       await this.photos.delete(photoKey).catch(() => undefined);
       await this.usage.release(userId, now);
@@ -94,23 +88,6 @@ export class LibraryService {
       this.logger.warn(`Page ${page.id} saved but not queued; the stuck-page check will queue it: ${String(error)}`);
     });
     return page;
-  }
-
-  private async reserve(userId: string, now: Date): Promise<void> {
-    try {
-      await this.usage.reserve(userId, now);
-    } catch (error) {
-      if (!(error instanceof DailyLimitReachedError)) throw error;
-      const time = error.resetAt.toISOString().slice(11, 16);
-      throw new HttpException(
-        {
-          statusCode: HttpStatus.TOO_MANY_REQUESTS,
-          message: `You have used today's ${error.limit} pages. You can add more after ${time} UTC.`,
-          resetAt: error.resetAt.toISOString(),
-        },
-        HttpStatus.TOO_MANY_REQUESTS,
-      );
-    }
   }
 
   async getPage(userId: string, pageId: string): Promise<Page> {

@@ -19,9 +19,10 @@ import type {} from 'multer'; // adds the Express.Multer.File type
 import { z } from 'zod';
 import type { SignedInUser } from '../accounts/auth.service.js';
 import { CurrentUser, SessionGuard } from '../accounts/session.guard.js';
-import type { Book, Page } from '../generated/prisma/client.js';
+import type { Book } from '../generated/prisma/client.js';
 import { isJpeg, MAX_PHOTO_BYTES } from '../photos/photo-store.js';
 import { type BookWithPageCount, LibraryService } from './library.service.js';
+import { pageView } from './views.js';
 
 const bookBody = z.object({ title: z.string().trim().min(1, 'Enter a title').max(200) });
 const pageFields = z.object({
@@ -44,18 +45,6 @@ const bookView = (book: Book | BookWithPageCount) => ({
   sourceLanguage: book.sourceLanguage,
   createdAt: book.createdAt,
   ...('pageCount' in book ? { pageCount: book.pageCount } : {}),
-});
-
-/** What the web app sees of a page. The storage key and raw model output stay on the server. */
-const pageView = (page: Page) => ({
-  id: page.id,
-  bookId: page.bookId,
-  pageNumber: page.pageNumber,
-  status: page.status,
-  failedStage: page.failedStage,
-  failureReason: page.failureReason,
-  hasPhoto: page.photoDeletedAt === null,
-  createdAt: page.createdAt,
 });
 
 @Controller()
