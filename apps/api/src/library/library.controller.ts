@@ -22,6 +22,7 @@ import { CurrentUser, SessionGuard } from '../accounts/session.guard.js';
 import type { Book } from '../generated/prisma/client.js';
 import { isJpeg, MAX_PHOTO_BYTES } from '../photos/photo-store.js';
 import { type BookWithPageCount, LibraryService } from './library.service.js';
+import { ResultsService } from './results.service.js';
 import { pageView } from './views.js';
 
 const bookBody = z.object({ title: z.string().trim().min(1, 'Enter a title').max(200) });
@@ -50,7 +51,10 @@ const bookView = (book: Book | BookWithPageCount) => ({
 @Controller()
 @UseGuards(SessionGuard)
 export class LibraryController {
-  constructor(private readonly library: LibraryService) {}
+  constructor(
+    private readonly library: LibraryService,
+    private readonly results: ResultsService,
+  ) {}
 
   @Get('books')
   async listBooks(@CurrentUser() user: SignedInUser) {
@@ -105,6 +109,12 @@ export class LibraryController {
   @Get('pages/:id')
   async getPage(@CurrentUser() user: SignedInUser, @Param('id') id: string) {
     return pageView(await this.library.getPage(user.id, id));
+  }
+
+  /** Explanations for a finished page, in mark order. 409 until the page is DONE. */
+  @Get('pages/:id/results')
+  pageResults(@CurrentUser() user: SignedInUser, @Param('id') id: string) {
+    return this.results.pageResults(user.id, id);
   }
 
   @Get('pages/:id/photo')

@@ -6,11 +6,13 @@ import { ConfigModule } from './config/config.module.js';
 import { JobsModule } from './jobs/jobs.module.js';
 import { LibraryModule } from './library/library.module.js';
 import { MarksModule } from './marks/marks.module.js';
+import { ReviewModule } from './review/review.module.js';
+import { WordbankModule } from './wordbank/wordbank.module.js';
 import { PhotosModule } from './photos/photos.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 
 @Module({
-  imports: [ConfigModule, PrismaModule, PhotosModule, JobsModule, AccountsModule, LibraryModule, MarksModule],
+  imports: [ConfigModule, PrismaModule, PhotosModule, JobsModule, AccountsModule, LibraryModule, MarksModule, WordbankModule, ReviewModule],
   controllers: [AppController],
   providers: [AppService],
 })
