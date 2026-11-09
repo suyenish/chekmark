@@ -1,7 +1,8 @@
-import { BadRequestException, Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
 import type { CookieOptions, Request, Response } from 'express';
 import { z } from 'zod';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
+import { AccountService } from './account.service.js';
 import { AuthService, SESSION_LIFETIME_MS, type SignedInUser } from './auth.service.js';
 import { CurrentUser, readCookie, SESSION_COOKIE, SessionGuard } from './session.guard.js';
 
@@ -18,6 +19,7 @@ function parse<T>(schema: z.ZodType<T>, body: unknown): T {
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
+    private readonly accounts: AccountService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
@@ -51,5 +53,14 @@ export class AuthController {
   @UseGuards(SessionGuard)
   me(@CurrentUser() user: SignedInUser): SignedInUser {
     return user;
+  }
+
+  /** Deletes the account with all its books, pages, photos and word bank, and signs out. */
+  @Delete('account')
+  @UseGuards(SessionGuard)
+  @HttpCode(204)
+  async deleteAccount(@CurrentUser() user: SignedInUser, @Res({ passthrough: true }) res: Response): Promise<void> {
+    await this.accounts.deleteAccount(user.id);
+    res.clearCookie(SESSION_COOKIE, this.cookieOptions());
   }
 }

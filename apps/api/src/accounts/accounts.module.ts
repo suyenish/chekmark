@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
+import { AccountService } from './account.service.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { LogMailer, MAILER, SmtpMailer } from './mailer.js';
@@ -10,6 +11,7 @@ import { UsageService } from './usage.service.js';
   controllers: [AuthController],
   providers: [
     AuthService,
+    AccountService,
     SessionGuard,
     UsageService,
     {

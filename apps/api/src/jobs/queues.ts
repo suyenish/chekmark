@@ -11,6 +11,10 @@ export const MAINTENANCE_QUEUE = 'maintenance';
 export const STUCK_PAGE_CHECK = 'requeue-stuck-pages';
 export const STUCK_PAGE_CHECK_EVERY_MS = 5 * 60 * 1000;
 
+/** The repeatable job that deletes photos older than 30 days. */
+export const EXPIRED_PHOTO_CHECK = 'delete-expired-photos';
+export const EXPIRED_PHOTO_CHECK_EVERY_MS = 24 * 60 * 60 * 1000;
+
 export type PageJob = { pageId: string };
 
 /** Puts page work on the queue. Adding a page that is already waiting does nothing. */
@@ -113,4 +117,9 @@ export class BullMqPageQueue implements PageQueue {
 /** Runs the stuck-page check every 5 minutes. Safe to call on every worker start. */
 export async function scheduleStuckPageCheck(maintenance: Queue): Promise<void> {
   await maintenance.upsertJobScheduler(STUCK_PAGE_CHECK, { every: STUCK_PAGE_CHECK_EVERY_MS }, { name: STUCK_PAGE_CHECK });
+}
+
+/** Deletes expired photos once a day. Safe to call on every worker start. */
+export async function scheduleExpiredPhotoCheck(maintenance: Queue): Promise<void> {
+  await maintenance.upsertJobScheduler(EXPIRED_PHOTO_CHECK, { every: EXPIRED_PHOTO_CHECK_EVERY_MS }, { name: EXPIRED_PHOTO_CHECK });
 }
