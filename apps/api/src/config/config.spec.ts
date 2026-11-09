@@ -25,6 +25,7 @@ describe('loadConfig', () => {
       redisUrl: 'redis://localhost:6379',
       ownerEmail: null,
       anthropicApiKey: null,
+      aiProvider: 'anthropic',
     });
   });
 
@@ -120,5 +121,12 @@ describe('loadConfig', () => {
     const production = { DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465' };
     expect(() => loadConfig(production)).toThrow(/ANTHROPIC_API_KEY/);
     expect(loadConfig({ ...production, ANTHROPIC_API_KEY: 'k' }).anthropicApiKey).toBe('k');
+  });
+
+  it('reads AI_PROVIDER and refuses the fake AI in production', () => {
+    expect(loadConfig({ DATABASE_URL, AI_PROVIDER: 'fake' }).aiProvider).toBe('fake');
+    expect(() => loadConfig({ DATABASE_URL, AI_PROVIDER: 'openai' })).toThrow(/AI_PROVIDER/);
+    const production = { DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465', ANTHROPIC_API_KEY: 'k' };
+    expect(() => loadConfig({ ...production, AI_PROVIDER: 'fake' })).toThrow(/AI_PROVIDER/);
   });
 });

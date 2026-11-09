@@ -1,0 +1,15 @@
+# Never sent to the Docker build: dependencies are installed fresh, and private files stay private.
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+apps/api/src/generated
+.env
+.env.*
+private-test-data
+.superpowers
+.claude
+.git
+e2e
+test-results
+playwright-report

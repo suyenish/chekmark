@@ -40,6 +40,8 @@ const envSchema = z.object({
   OWNER_EMAIL: text(z.string().trim().toLowerCase().pipe(z.email()).optional()),
   /** Used by the worker. Enter it only in .env or the host's settings. */
   ANTHROPIC_API_KEY: text(z.string().optional()),
+  /** "fake" answers from a script instead of calling Claude: for the end-to-end test and trying the app. Never in production. */
+  AI_PROVIDER: text(z.enum(['anthropic', 'fake']).default('anthropic')),
   REDIS_URL: text(z.string().regex(/^rediss?:\/\//, 'must be a redis:// or rediss:// address').default('redis://localhost:6379')),
 }).superRefine((env, ctx) => {
   if (env.S3_ACCESS_KEY_ID && !env.S3_SECRET_ACCESS_KEY) {
@@ -47,6 +49,9 @@ const envSchema = z.object({
   }
   if (env.S3_SECRET_ACCESS_KEY && !env.S3_ACCESS_KEY_ID) {
     ctx.addIssue({ code: 'custom', path: ['S3_ACCESS_KEY_ID'], message: 'is required when S3_SECRET_ACCESS_KEY is set' });
+  }
+  if (env.NODE_ENV === 'production' && env.AI_PROVIDER === 'fake') {
+    ctx.addIssue({ code: 'custom', path: ['AI_PROVIDER'], message: 'cannot be fake in production' });
   }
   if (env.NODE_ENV === 'production' && !env.ANTHROPIC_API_KEY) {
     ctx.addIssue({ code: 'custom', path: ['ANTHROPIC_API_KEY'], message: 'is required in production, so the worker can read pages' });
@@ -93,5 +98,6 @@ function toConfig(env: z.infer<typeof envSchema>) {
     redisUrl: env.REDIS_URL,
     ownerEmail: env.OWNER_EMAIL ?? null,
     anthropicApiKey: env.ANTHROPIC_API_KEY ?? null,
+    aiProvider: env.AI_PROVIDER,
   };
 }

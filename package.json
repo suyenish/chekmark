@@ -2,5 +2,13 @@
   "name": "marked-pages",
   "private": true,
   "packageManager": "pnpm@10.34.9",
-  "engines": { "node": ">=22.9" }
+  "engines": {
+    "node": ">=22.9"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.0"
+  },
+  "scripts": {
+    "e2e": "playwright test"
+  }
 }
