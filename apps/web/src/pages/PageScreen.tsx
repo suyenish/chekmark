@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { messageOf, type PageInfo, type PageStatus, useApi } from '../api';
 import { MarkCheck } from './MarkCheck';
+import { Results } from './Results';
 
 /** While the worker is busy, the page is asked for again every 2 seconds. */
 export const POLL_MS = 2000;
@@ -78,13 +79,7 @@ export function PageScreen({ pageId }: { pageId: string }) {
         </div>
       );
     case 'DONE':
-      return (
-        <>
-          <h1>{title} is finished</h1>
-          <p className="lede">The words and grammar you marked are in your word bank. The results screen is coming soon.</p>
-          {back}
-        </>
-      );
+      return <Results page={page} onPhotoDeleted={() => setPage({ ...page, hasPhoto: false })} />;
     case 'FAILED':
       return (
         <>

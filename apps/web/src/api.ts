@@ -42,6 +42,84 @@ export interface MarkInfo {
 
 export type MarkEdit = { type: ChosenMarkType } | { save: boolean };
 
+export interface SeenBefore {
+  bookId: string;
+  bookTitle: string;
+  pageId: string;
+  pageNumber: number | null;
+  sentence: string;
+}
+
+export type PageResult =
+  | { markId: string; kind: 'translation'; text: string; translation: string }
+  | {
+      markId: string;
+      kind: 'word' | 'grammar';
+      text: string;
+      normalForm: string;
+      itemId: string;
+      senseId: string;
+      meaning: string;
+      notes: string | null;
+      example: string | null;
+      exampleTranslation: string | null;
+      sentence: string;
+      sentenceTranslation: string | null;
+      seenBefore: SeenBefore[];
+    };
+
+export type ItemKind = 'word' | 'grammar';
+
+export interface ItemSummary {
+  id: string;
+  kind: ItemKind;
+  normalForm: string;
+  meanings: string[];
+  sightingCount: number;
+  createdAt: string;
+}
+
+export interface Sighting {
+  id: string;
+  bookId: string;
+  bookTitle: string;
+  pageId: string;
+  pageNumber: number | null;
+  sentence: string;
+  sentenceTranslation: string | null;
+  createdAt: string;
+}
+
+export interface Sense {
+  id: string;
+  meaning: string;
+  notes: string | null;
+  example: string | null;
+  exampleTranslation: string | null;
+  sightings: Sighting[];
+}
+
+export interface ItemDetail {
+  id: string;
+  kind: ItemKind;
+  normalForm: string;
+  createdAt: string;
+  senses: Sense[];
+}
+
+export type SenseEdit = { senseId: string; meaning?: string; notes?: string | null };
+
+export type Rating = 'again' | 'hard' | 'easy';
+
+export interface DueCard {
+  cardId: string;
+  kind: ItemKind;
+  normalForm: string;
+  front: { sentence: string; highlight: { text: string; start: number } | null };
+  back: { meaning: string; notes: string | null; example: string | null; exampleTranslation: string | null; sentenceTranslation: string | null };
+  source: { bookTitle: string; pageNumber: number | null } | null;
+}
+
 /** An answer from the server that was not a success. `message` is written for the reader. */
 export class ApiError extends Error {
   constructor(
@@ -72,6 +150,15 @@ export interface Api {
   addMark(pageId: string, mark: { type: ChosenMarkType; text: string }): Promise<MarkInfo>;
   confirm(pageId: string): Promise<PageInfo>;
   retry(pageId: string): Promise<PageInfo>;
+  pageResults(pageId: string): Promise<PageResult[]>;
+  deletePagePhoto(pageId: string): Promise<void>;
+  listItems(filter: { q?: string; kind?: ItemKind }): Promise<ItemSummary[]>;
+  getItem(id: string): Promise<ItemDetail>;
+  editSense(itemId: string, edit: SenseEdit): Promise<ItemDetail>;
+  deleteItem(id: string): Promise<void>;
+  dueCards(): Promise<DueCard[]>;
+  rateCard(cardId: string, rating: Rating): Promise<{ cardId: string; dueAt: string; intervalDays: number; ease: number }>;
+  deleteAccount(): Promise<void>;
 }
 
 const BASE = '/api';
@@ -128,6 +215,21 @@ export const httpApi: Api = {
   addMark: (pageId, mark) => call('POST', `/pages/${pageId}/marks`, mark),
   confirm: (pageId) => call('POST', `/pages/${pageId}/confirm`),
   retry: (pageId) => call('POST', `/pages/${pageId}/retry`),
+  pageResults: (pageId) => call('GET', `/pages/${pageId}/results`),
+  deletePagePhoto: (pageId) => call('DELETE', `/pages/${pageId}/photo`),
+  listItems({ q, kind }) {
+    const params = new URLSearchParams();
+    if (q?.trim()) params.set('q', q.trim());
+    if (kind) params.set('kind', kind);
+    const query = params.toString();
+    return call('GET', `/wordbank${query ? `?${query}` : ''}`);
+  },
+  getItem: (id) => call('GET', `/wordbank/${id}`),
+  editSense: (itemId, edit) => call('PATCH', `/wordbank/${itemId}`, edit),
+  deleteItem: (id) => call('DELETE', `/wordbank/${id}`),
+  dueCards: () => call('GET', '/review/due'),
+  rateCard: (cardId, rating) => call('POST', `/review/${cardId}`, { rating }),
+  deleteAccount: () => call('DELETE', '/account'),
 };
 
 export const ApiContext = createContext<Api>(httpApi);

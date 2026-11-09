@@ -1,23 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
-import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router';
+import { BrowserRouter, Link, Navigate, NavLink, Route, Routes, useNavigate, useParams } from 'react-router';
 import { messageOf, type User, useApi } from './api';
 import { BookPages, Books } from './pages/Books';
 import { Capture } from './pages/Capture';
 import { PageScreen } from './pages/PageScreen';
+import { Review } from './pages/Review';
+import { Settings } from './pages/Settings';
 import { SignIn } from './pages/SignIn';
+import { ItemScreen, WordBank } from './pages/WordBank';
 
 function Header({ user, onSignOut }: { user: User | null; onSignOut: () => void }) {
   return (
-    <header className="topbar">
-      <Link className="wordmark" to="/" lang="ko">
-        책마크
-      </Link>
-      <span className="beta">Beta</span>
-      <span className="spacer" />
+    <header>
+      <div className="topbar">
+        <Link className="wordmark" to="/" lang="ko">
+          책마크
+        </Link>
+        <span className="beta">Beta</span>
+        <span className="spacer" />
+        {user && (
+          <button type="button" className="quiet-button" onClick={onSignOut}>
+            Sign out
+          </button>
+        )}
+      </div>
       {user && (
-        <button type="button" className="quiet-button" onClick={onSignOut}>
-          Sign out
-        </button>
+        <nav className="nav" aria-label="Main">
+          <NavLink to="/" end>
+            Books
+          </NavLink>
+          <NavLink to="/wordbank">Word bank</NavLink>
+          <NavLink to="/review">Review</NavLink>
+          <NavLink to="/settings">Settings</NavLink>
+        </nav>
       )}
     </header>
   );
@@ -63,6 +78,21 @@ function AppRoutes() {
                 <Route path="/books/:bookId" element={<BookPages />} />
                 <Route path="/books/:bookId/capture" element={<Capture />} />
                 <Route path="/pages/:pageId" element={<PageRoute />} />
+                <Route path="/wordbank" element={<WordBank />} />
+                <Route path="/wordbank/:itemId" element={<ItemScreen />} />
+                <Route path="/review" element={<Review />} />
+                <Route
+                  path="/settings"
+                  element={
+                    <Settings
+                      email={user.email}
+                      onDeleted={() => {
+                        setUser(null);
+                        navigate('/sign-in', { replace: true });
+                      }}
+                    />
+                  }
+                />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </>
             ) : (
