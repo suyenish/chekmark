@@ -8,8 +8,11 @@ import { Results } from './Results';
 export const POLL_MS = 2000;
 const WORKING: PageStatus[] = ['UPLOADED', 'DETECTING', 'EXPLAINING'];
 
+/** After a failed request, wait longer each time, up to 30 seconds. */
+const MAX_RETRY_MS = 30_000;
+
 /** One page from upload to finish: waiting, Mark check, explaining, done or failed. */
-export function PageScreen({ pageId }: { pageId: string }) {
+export function PageScreen({ pageId, pollMs = POLL_MS }: { pageId: string; pollMs?: number }) {
   const api = useApi();
   const [page, setPage] = useState<PageInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -18,14 +21,21 @@ export function PageScreen({ pageId }: { pageId: string }) {
   useEffect(() => {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let failures = 0;
     const load = async () => {
       try {
         const next = await api.getPage(pageId);
         if (stopped) return;
+        failures = 0;
+        setError(null);
         setPage(next);
-        if (WORKING.includes(next.status)) timer = setTimeout(load, POLL_MS);
+        if (WORKING.includes(next.status)) timer = setTimeout(load, pollMs);
       } catch (e) {
-        if (!stopped) setError(messageOf(e));
+        if (stopped) return;
+        // A phone can lose signal for a moment, or the server can be restarting: say so and keep trying.
+        failures++;
+        setError(messageOf(e));
+        timer = setTimeout(load, Math.min(pollMs * 2 ** failures, MAX_RETRY_MS));
       }
     };
     // Start again whenever the page goes back to a working status (after Confirm or Retry).
@@ -35,7 +45,7 @@ export function PageScreen({ pageId }: { pageId: string }) {
       clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- restart only when the status changes
-  }, [api, pageId, page?.status]);
+  }, [api, pageId, pollMs, page?.status]);
 
   async function retry() {
     setBusy(true);
@@ -66,6 +76,7 @@ export function PageScreen({ pageId }: { pageId: string }) {
           <h1>{title}</h1>
           <p className="lede">Reading your pencil marks. This usually takes about 15 seconds.</p>
           <div className="drawn-line" aria-hidden="true" />
+          {error && <p className="error">{error} Still trying…</p>}
         </div>
       );
     case 'AWAITING_CHECK':
@@ -76,6 +87,7 @@ export function PageScreen({ pageId }: { pageId: string }) {
           <h1>{title}</h1>
           <p className="lede">Writing explanations for your marks. This usually takes about 20 seconds.</p>
           <div className="drawn-line" aria-hidden="true" />
+          {error && <p className="error">{error} Still trying…</p>}
         </div>
       );
     case 'DONE':

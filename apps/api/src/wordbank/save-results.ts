@@ -24,8 +24,8 @@ const itemKindOf = (type: string): ItemKind | null => (type === 'underline_save'
  * - existing: a new sighting of a sense the reader already has, no new card.
  * - new: the item (found or created by dictionary form), a new sense, its
  *   sighting and a card showing that sighting. A second mark of the same word
- *   with the same meaning on this page reuses that sense, so it gets one card,
- *   showing the word's first sighting.
+ *   on this page reuses that sense, however the model worded its meaning, so
+ *   the word gets one card, showing its first sighting.
  *
  * Marks that already have a sighting or translation are skipped, so running
  * it twice saves nothing twice.
@@ -38,7 +38,9 @@ export async function saveResults(tx: Prisma.TransactionClient, userId: string, 
     include: { sighting: { select: { id: true } }, translation: { select: { id: true } } },
   });
   const resultByMark = new Map(results.map((result) => [result.markId, result]));
-  const sensesMadeHere = new Map<string, string>(); // `${itemId}|${meaning}` → sense ID
+  // One new sense per item per page. The model words the same meaning differently from mark to mark
+  // ("barely" / "barely, with difficulty"), so matching on the wording would give duplicate cards.
+  const sensesMadeHere = new Map<string, string>(); // item ID → sense ID
   const now = new Date();
 
   for (const mark of marks) {
@@ -68,8 +70,7 @@ export async function saveResults(tx: Prisma.TransactionClient, userId: string, 
       create: { userId, kind, language: page.book.sourceLanguage, normalForm },
       update: {},
     });
-    const key = `${item.id}|${result.meaning.trim().toLowerCase()}`;
-    const reused = sensesMadeHere.get(key);
+    const reused = sensesMadeHere.get(item.id);
     if (reused) {
       await tx.sighting.create({ data: { ...sighting, senseId: reused } });
       continue;
@@ -83,7 +84,7 @@ export async function saveResults(tx: Prisma.TransactionClient, userId: string, 
         exampleTranslation: result.exampleTranslation,
       },
     });
-    sensesMadeHere.set(key, sense.id);
+    sensesMadeHere.set(item.id, sense.id);
     const created = await tx.sighting.create({ data: { ...sighting, senseId: sense.id } });
     await tx.card.create({ data: { senseId: sense.id, sightingId: created.id, dueAt: now } });
   }
