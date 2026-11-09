@@ -1,5 +1,6 @@
-# Local services for development. Start with: docker compose up -d
-# The API, the worker and the web app are added in a later task.
+# Local services. `docker compose up -d` starts PostgreSQL, Redis and photo storage for development.
+# `docker compose --profile app up -d --build` also runs the whole app in containers at http://localhost:8080
+# (add AI_PROVIDER=fake in front to try it without calling Claude).
 services:
   postgres:
     image: postgres:18-alpine # same major version as the test database
@@ -46,6 +47,72 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # The whole app in containers. Same images as production; NODE_ENV=development here so the
+  # sign-in link is printed in the api log and the photo bucket is created on start.
+  migrate:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    image: chekmark-api:local
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment: &api-env
+      NODE_ENV: development
+      DATABASE_URL: postgresql://chekmark:chekmark@postgres:5432/chekmark
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://photos:8333
+      S3_REGION: us-east-1
+      S3_BUCKET: chekmark-photos
+      S3_ACCESS_KEY_ID: local
+      S3_SECRET_ACCESS_KEY: local
+      APP_URL: http://localhost:8080
+      # Your own addresses from .env, plus the address the end-to-end test signs in with.
+      ALLOWED_EMAILS: "${ALLOWED_EMAILS:-},e2e@example.com"
+      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_INPUT_COST_PER_MTOK: ${AI_INPUT_COST_PER_MTOK:-}
+      AI_OUTPUT_COST_PER_MTOK: ${AI_OUTPUT_COST_PER_MTOK:-}
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: "no"
+
+  api:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    image: chekmark-api:local
+    command: ["node", "dist/main.js"]
+    environment: *api-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      photos: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/health || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  worker:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    image: chekmark-api:local
+    command: ["node", "dist/worker.js"]
+    environment: *api-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      photos: { condition: service_healthy }
+
+  web:
+    profiles: [app]
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    image: chekmark-web:local
+    environment:
+      API_UPSTREAM: api:3000
+    ports:
+      - "8080:8080"
+    depends_on:
+      api: { condition: service_healthy }
 
 volumes:
   postgres-data:

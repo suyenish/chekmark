@@ -1,0 +1,31 @@
+# Filled in at start: ${API_UPSTREAM} comes from the environment.
+server {
+  listen 8080;
+  listen [::]:8080;
+  server_name _;
+  root /usr/share/nginx/html;
+
+  # Photos are uploaded through here; the API refuses anything above 10 MB.
+  client_max_body_size 12m;
+
+  # The API, on the same site, so the session cookie is a first-party cookie.
+  location /api/ {
+    proxy_pass http://${API_UPSTREAM}/;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 60s;
+  }
+
+  # Built files have content hashes in their names, so they can be cached for a long time.
+  location /assets/ {
+    add_header Cache-Control "public, max-age=31536000, immutable";
+    try_files $uri =404;
+  }
+
+  # Every other path is a screen of the app (/review, /pages/…): serve the app and let it route.
+  location / {
+    add_header Cache-Control "no-cache";
+    try_files $uri /index.html;
+  }
+}
