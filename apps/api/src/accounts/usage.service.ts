@@ -1,4 +1,4 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { HttpException, HttpStatus, Inject, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
 import { REDIS } from '../jobs/queues.js';
@@ -34,6 +34,38 @@ export class UsageService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(MAILER) private readonly mailer: Mailer,
   ) {}
+
+  /**
+   * Lets a page start AI work, or throws the answer the reader sees: 503 while
+   * the monthly budget is reached (alerting the owner once), 429 at the daily
+   * limit. Used for uploads and for detection retries.
+   */
+  async admitPage(userId: string, now: Date): Promise<void> {
+    await this.assertBudgetAvailable(now);
+    try {
+      await this.reserve(userId, now);
+    } catch (error) {
+      if (!(error instanceof DailyLimitReachedError)) throw error;
+      const time = error.resetAt.toISOString().slice(11, 16);
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.TOO_MANY_REQUESTS,
+          message: `You have used today's ${error.limit} pages. You can add more after ${time} UTC.`,
+          resetAt: error.resetAt.toISOString(),
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+  }
+
+  /** Throws 503 while the monthly budget is reached, alerting the owner once a month. */
+  async assertBudgetAvailable(now: Date): Promise<void> {
+    if (!(await this.isBudgetReached(now))) return;
+    await this.alertBudgetReached(now);
+    throw new ServiceUnavailableException(
+      'New pages are paused for now because the app reached its monthly AI budget. Your saved words and reviews still work.',
+    );
+  }
 
   /**
    * Counts one page for the user's day, or throws DailyLimitReachedError.

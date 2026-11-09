@@ -38,6 +38,8 @@ export class DetectionProcessor {
       return; // already done by an earlier run
     }
     const userId = page.book.userId;
+    // When the page entered UPLOADED (its upload or a retry) is when its usage was counted.
+    const countedOn = page.statusChangedAt;
 
     try {
       const photo = await this.photos.get(page.photoKey);
@@ -53,14 +55,14 @@ export class DetectionProcessor {
         }),
       );
       if (result.photo_usable) await this.saveMarks(pageId, result);
-      else await this.failUnusable(pageId, userId, page.createdAt, result);
+      else await this.failUnusable(pageId, userId, countedOn, result);
     } catch (error) {
       const lastAttempt = job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
       this.logger.warn(`Detection attempt ${job.attemptsMade + 1} for page ${pageId} failed: ${String(error)}`);
       if (lastAttempt) {
         const reason = error instanceof AiOutputInvalidError ? COULD_NOT_READ : RETRY_LATER;
         if (await movePage(this.prisma, pageId, 'DETECTING', 'FAILED', { failureReason: reason })) {
-          await this.usage.release(userId, page.createdAt);
+          await this.usage.release(userId, countedOn);
         }
       }
       throw error; // BullMQ retries, or records the final failure
@@ -91,13 +93,13 @@ export class DetectionProcessor {
   }
 
   /** A blurry, dark or cut-off photo does not count towards the daily limit. */
-  private async failUnusable(pageId: string, userId: string, uploadedAt: Date, result: DetectionResult): Promise<void> {
+  private async failUnusable(pageId: string, userId: string, countedOn: Date, result: DetectionResult): Promise<void> {
     const moved = await this.prisma.$transaction(async (tx) => {
       await tx.mark.deleteMany({ where: { pageId } });
       await tx.page.update({ where: { id: pageId }, data: { detectionResult: result as unknown as Prisma.InputJsonValue } });
       return movePage(tx, pageId, 'DETECTING', 'FAILED', { failureReason: result.problem ?? 'The photo could not be read.' });
     });
-    if (moved) await this.usage.release(userId, uploadedAt);
+    if (moved) await this.usage.release(userId, countedOn);
   }
 }
 
