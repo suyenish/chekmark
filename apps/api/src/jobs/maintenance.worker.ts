@@ -2,11 +2,23 @@ import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplica
 import { Queue, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
+import { PHOTO_STORE, type PhotoStore } from '../photos/photo-store.js';
+import { deleteExpiredPhotos } from '../photos/photo-retention.js';
 import { PrismaService } from '../prisma/prisma.service.js';
-import { createRedisConnection, MAINTENANCE_QUEUE, PAGE_QUEUE, type PageQueue, redisErrorWarner, scheduleStuckPageCheck, STUCK_PAGE_CHECK } from './queues.js';
+import {
+  createRedisConnection,
+  EXPIRED_PHOTO_CHECK,
+  MAINTENANCE_QUEUE,
+  PAGE_QUEUE,
+  type PageQueue,
+  redisErrorWarner,
+  scheduleExpiredPhotoCheck,
+  scheduleStuckPageCheck,
+  STUCK_PAGE_CHECK,
+} from './queues.js';
 import { requeueStuckPages } from './stuck-pages.js';
 
-/** Runs in the worker process: schedules and runs the stuck-page check. */
+/** Runs in the worker process: schedules and runs the stuck-page check (every 5 minutes) and photo retention (daily). */
 @Injectable()
 export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(MaintenanceWorker.name);
@@ -18,6 +30,7 @@ export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationS
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly prisma: PrismaService,
     @Inject(PAGE_QUEUE) private readonly pageQueue: PageQueue,
+    @Inject(PHOTO_STORE) private readonly photos: PhotoStore,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -27,12 +40,17 @@ export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationS
     this.queue = new Queue(MAINTENANCE_QUEUE, { connection: this.connection });
     this.queue.on('error', warn);
     await scheduleStuckPageCheck(this.queue);
+    await scheduleExpiredPhotoCheck(this.queue);
     this.worker = new Worker(
       MAINTENANCE_QUEUE,
       async (job) => {
-        if (job.name !== STUCK_PAGE_CHECK) return;
-        const count = await requeueStuckPages(this.prisma, this.pageQueue, new Date());
-        if (count > 0) this.logger.log(`Re-queued ${count} stuck page(s)`);
+        if (job.name === STUCK_PAGE_CHECK) {
+          const count = await requeueStuckPages(this.prisma, this.pageQueue, new Date());
+          if (count > 0) this.logger.log(`Re-queued ${count} stuck page(s)`);
+        } else if (job.name === EXPIRED_PHOTO_CHECK) {
+          const count = await deleteExpiredPhotos(this.prisma, this.photos, new Date());
+          if (count > 0) this.logger.log(`Deleted ${count} photo(s) older than 30 days`);
+        }
       },
       { connection: this.connection },
     );

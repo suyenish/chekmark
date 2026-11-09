@@ -117,6 +117,13 @@ export class LibraryController {
     return this.results.pageResults(user.id, id);
   }
 
+  /** Deletes the photo now. The page's marks, results and word bank stay. */
+  @Delete('pages/:id/photo')
+  @HttpCode(204)
+  async deletePhoto(@CurrentUser() user: SignedInUser, @Param('id') id: string): Promise<void> {
+    await this.library.deletePagePhoto(user.id, id);
+  }
+
   @Get('pages/:id/photo')
   async getPhoto(@CurrentUser() user: SignedInUser, @Param('id') id: string): Promise<StreamableFile> {
     const photo = await this.library.getPagePhoto(user.id, id);

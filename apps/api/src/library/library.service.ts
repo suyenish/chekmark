@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { UsageService } from '../accounts/usage.service.js';
 import type { Book, Page } from '../generated/prisma/client.js';
 import { PAGE_QUEUE, type PageQueue } from '../jobs/queues.js';
@@ -105,5 +105,19 @@ export class LibraryService {
       if (error instanceof PhotoNotFoundError) throw new NotFoundException('Photo not found');
       throw error;
     }
+  }
+
+  /**
+   * Deletes the page's photo now instead of after 30 days. The marks, results
+   * and word bank stay. Storage goes first, so a failure can be retried.
+   */
+  async deletePagePhoto(userId: string, pageId: string): Promise<void> {
+    const page = await this.getPage(userId, pageId);
+    if (page.photoDeletedAt) return;
+    if (page.status === 'UPLOADED' || page.status === 'DETECTING') {
+      throw new ConflictException('The marks on this photo are still being read. Delete it once they are ready.');
+    }
+    await this.photos.delete(page.photoKey);
+    await this.prisma.page.update({ where: { id: pageId }, data: { photoDeletedAt: new Date() } });
   }
 }
