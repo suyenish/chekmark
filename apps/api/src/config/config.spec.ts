@@ -23,6 +23,8 @@ describe('loadConfig', () => {
       s3AccessKeyId: null,
       s3SecretAccessKey: null,
       redisUrl: 'redis://localhost:6379',
+      ownerEmail: null,
+      anthropicApiKey: null,
     });
   });
 
@@ -72,7 +74,7 @@ describe('loadConfig', () => {
 
   it('requires SMTP_URL in production, because a sign-in link that is only logged reaches nobody', () => {
     expect(() => loadConfig({ DATABASE_URL, NODE_ENV: 'production' })).toThrow(/SMTP_URL/);
-    expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465' }).smtpUrl).toBe(
+    expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465', ANTHROPIC_API_KEY: 'k' }).smtpUrl).toBe(
       'smtps://u:p@smtp.example:465',
     );
   });
@@ -107,5 +109,16 @@ describe('loadConfig', () => {
   it('reads REDIS_URL and rejects one that is not a redis:// address', () => {
     expect(loadConfig({ DATABASE_URL, REDIS_URL: 'rediss://cache.example:6380' }).redisUrl).toBe('rediss://cache.example:6380');
     expect(() => loadConfig({ DATABASE_URL, REDIS_URL: 'http://localhost:6379' })).toThrow(/REDIS_URL/);
+  });
+
+  it('reads OWNER_EMAIL in lower case and rejects one that is not an email', () => {
+    expect(loadConfig({ DATABASE_URL, OWNER_EMAIL: 'Me@Example.com' }).ownerEmail).toBe('me@example.com');
+    expect(() => loadConfig({ DATABASE_URL, OWNER_EMAIL: 'me' })).toThrow(/OWNER_EMAIL/);
+  });
+
+  it('requires ANTHROPIC_API_KEY in production, because the worker cannot read pages without it', () => {
+    const production = { DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465' };
+    expect(() => loadConfig(production)).toThrow(/ANTHROPIC_API_KEY/);
+    expect(loadConfig({ ...production, ANTHROPIC_API_KEY: 'k' }).anthropicApiKey).toBe('k');
   });
 });

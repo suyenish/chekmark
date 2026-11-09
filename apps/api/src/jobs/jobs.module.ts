@@ -1,11 +1,9 @@
 import { Global, Inject, Logger, Module, type OnModuleDestroy } from '@nestjs/common';
 import type { Redis } from 'ioredis';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
-import { BullMqPageQueue, createRedisConnection, PAGE_QUEUE, redisErrorWarner } from './queues.js';
+import { BullMqPageQueue, createRedisConnection, PAGE_QUEUE, REDIS, redisErrorWarner } from './queues.js';
 
-const REDIS = Symbol('REDIS');
-
-/** Gives every module the PageQueue. The connection fails fast when Redis is down. */
+/** Gives every module the PageQueue and the API's Redis connection, which fails fast when Redis is down. */
 @Global()
 @Module({
   providers: [
@@ -20,7 +18,7 @@ const REDIS = Symbol('REDIS');
     },
     { provide: PAGE_QUEUE, inject: [REDIS], useFactory: (redis: Redis) => new BullMqPageQueue(redis) },
   ],
-  exports: [PAGE_QUEUE],
+  exports: [PAGE_QUEUE, REDIS],
 })
 export class JobsModule implements OnModuleDestroy {
   constructor(

@@ -19,6 +19,9 @@ export interface PageQueue {
   enqueueExplanation(pageId: string): Promise<void>;
 }
 
+/** Nest injection token for the API's fail-fast Redis connection. */
+export const REDIS = Symbol('REDIS');
+
 /** Nest injection token for the PageQueue. */
 export const PAGE_QUEUE = Symbol('PAGE_QUEUE');
 

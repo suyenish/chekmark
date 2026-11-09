@@ -36,6 +36,10 @@ const envSchema = z.object({
   S3_ACCESS_KEY_ID: text(z.string().optional()),
   S3_SECRET_ACCESS_KEY: text(z.string().optional()),
   /** Redis for the job queue. Page status lives in PostgreSQL, so Redis data can be lost safely. */
+  /** Gets an email when the monthly AI budget is reached. Without it the alert is only logged. */
+  OWNER_EMAIL: text(z.string().trim().toLowerCase().pipe(z.email()).optional()),
+  /** Used by the worker. Enter it only in .env or the host's settings. */
+  ANTHROPIC_API_KEY: text(z.string().optional()),
   REDIS_URL: text(z.string().regex(/^rediss?:\/\//, 'must be a redis:// or rediss:// address').default('redis://localhost:6379')),
 }).superRefine((env, ctx) => {
   if (env.S3_ACCESS_KEY_ID && !env.S3_SECRET_ACCESS_KEY) {
@@ -43,6 +47,9 @@ const envSchema = z.object({
   }
   if (env.S3_SECRET_ACCESS_KEY && !env.S3_ACCESS_KEY_ID) {
     ctx.addIssue({ code: 'custom', path: ['S3_ACCESS_KEY_ID'], message: 'is required when S3_SECRET_ACCESS_KEY is set' });
+  }
+  if (env.NODE_ENV === 'production' && !env.ANTHROPIC_API_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['ANTHROPIC_API_KEY'], message: 'is required in production, so the worker can read pages' });
   }
   if (env.NODE_ENV === 'production' && !env.SMTP_URL) {
     ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'is required in production, so sign-in links reach people' });
@@ -84,5 +91,7 @@ function toConfig(env: z.infer<typeof envSchema>) {
     s3AccessKeyId: env.S3_ACCESS_KEY_ID ?? null,
     s3SecretAccessKey: env.S3_SECRET_ACCESS_KEY ?? null,
     redisUrl: env.REDIS_URL,
+    ownerEmail: env.OWNER_EMAIL ?? null,
+    anthropicApiKey: env.ANTHROPIC_API_KEY ?? null,
   };
 }

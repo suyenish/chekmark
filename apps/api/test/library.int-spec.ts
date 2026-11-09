@@ -51,7 +51,15 @@ describe('books, pages and photos', () => {
     db = await startTestDb();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue(loadConfig({ NODE_ENV: 'test', DATABASE_URL: db.url, ALLOWED_EMAILS: `${OWNER},${OTHER}` }))
+      .useValue(
+        loadConfig({
+          NODE_ENV: 'test',
+          DATABASE_URL: db.url,
+          ALLOWED_EMAILS: `${OWNER},${OTHER}`,
+          REDIS_URL: 'redis://127.0.0.1:1', // never the developer's local Redis; limits are tested in usage.int-spec
+          DAILY_PAGE_LIMIT: '1000',
+        }),
+      )
       .overrideProvider(MAILER)
       .useValue(mailer)
       .overrideProvider(PHOTO_STORE)
