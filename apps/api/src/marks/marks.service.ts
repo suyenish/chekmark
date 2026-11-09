@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { UsageService } from '../accounts/usage.service.js';
-import type { Mark, MarkType, Page } from '../generated/prisma/client.js';
+import { type Mark, type MarkType, type Page, Prisma } from '../generated/prisma/client.js';
 import { movePage } from '../jobs/page-status.js';
 import { PAGE_QUEUE, type PageQueue } from '../jobs/queues.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -146,6 +146,8 @@ export class MarksService {
         await this.usage.release(userId, now);
         throw new ConflictException('This page is already being retried.');
       }
+      // The new detection replaces the old answer, including an "unusable photo" verdict.
+      await this.prisma.page.update({ where: { id: pageId }, data: { detectionResult: Prisma.DbNull } });
       await this.enqueue(() => this.queue.enqueueDetection(pageId), pageId);
     }
     return this.prisma.page.findUniqueOrThrow({ where: { id: pageId } });

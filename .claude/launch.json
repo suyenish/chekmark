@@ -1,0 +1,25 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": [
+        "-c",
+        "set -a && . ./.env && set +a && export ALLOWED_EMAILS=\"${ALLOWED_EMAILS:-check@example.com}\" && cd apps/api && corepack pnpm start:dev"
+      ],
+      "port": 3000
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": [
+        "pnpm",
+        "--filter",
+        "web",
+        "dev"
+      ],
+      "port": 5173
+    }
+  ]
+}
