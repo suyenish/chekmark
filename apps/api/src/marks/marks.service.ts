@@ -22,11 +22,17 @@ export type NewMark = { type: ChosenType; text: string; normalForm?: string | nu
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const NOT_IN_CHECK = 'Marks can only be changed while the page is waiting for your Mark check.';
 
-/** Only saved types need a dictionary form; a translation never has one. */
-function normalFormFor(type: MarkType, text: string, normalForm: string | null | undefined): string | null {
-  if (type === 'underline_translate' || type === 'unclear') return null;
-  const given = normalForm?.trim();
-  return given ? given : text;
+const kindOf = (type: MarkType) => (type === 'underline_save' ? 'word' : type === 'curly' ? 'grammar' : 'other');
+
+/**
+ * Only saved types have a dictionary form, and a translation never does.
+ * When the reader does not give one, it is left empty and the explanation
+ * step reads it from the photo, rather than guessing from the marked text.
+ */
+function normalFormFor(type: MarkType, given: string | null | undefined): string | null {
+  if (kindOf(type) === 'other') return null;
+  const trimmed = given?.trim();
+  return trimmed ? trimmed : null;
 }
 
 /**
@@ -61,7 +67,9 @@ export class MarksService {
       type = edit.save ? 'underline_save' : 'underline_translate';
     }
     const text = edit.text ?? mark.text;
-    const normalForm = normalFormFor(type, text, edit.normalForm !== undefined ? edit.normalForm : mark.normalForm);
+    // A new text, or a switch between word and grammar, makes the old dictionary form wrong.
+    const stillValid = text === mark.text && kindOf(type) === kindOf(mark.type);
+    const normalForm = normalFormFor(type, edit.normalForm !== undefined ? edit.normalForm : stillValid ? mark.normalForm : null);
     const sentence = edit.sentence !== undefined ? edit.sentence : mark.sentence;
 
     // The page filter makes the edit fail if the page left the Mark check meanwhile.
@@ -90,7 +98,7 @@ export class MarksService {
         order: (last._max.order ?? -1) + 1,
         type: mark.type,
         text: mark.text,
-        normalForm: normalFormFor(mark.type, mark.text, mark.normalForm),
+        normalForm: normalFormFor(mark.type, mark.normalForm),
         sentence: mark.sentence ?? null,
         source: 'added',
       },
