@@ -123,14 +123,27 @@ describe('Mark check', () => {
     it('changing a mark type sets source to corrected', async () => {
       const { marks } = await createPage('AWAITING_CHECK', [{ type: 'underline_save', text: '비록' }]);
       const response = await owner.patch(`/marks/${marks[0].id}`).send({ type: 'curly' }).expect(200);
-      expect(response.body).toMatchObject({ type: 'curly', source: 'corrected', normalForm: '비록' });
+      // A word's dictionary form is not a grammar pattern: it is cleared for the explanation step to find again.
+      expect(response.body).toMatchObject({ type: 'curly', source: 'corrected', normalForm: null });
       expect(await markRow(marks[0].id)).toMatchObject({ type: 'curly', source: 'corrected' });
     });
 
-    it('resolves an unclear mark by choosing a type, using the text as the dictionary form', async () => {
+    it('resolves an unclear mark by choosing a type, leaving the dictionary form for the explanation step', async () => {
       const { marks } = await createPage('AWAITING_CHECK', [{ type: 'unclear', text: '평평' }]);
       const response = await owner.patch(`/marks/${marks[0].id}`).send({ type: 'underline_save' }).expect(200);
-      expect(response.body).toMatchObject({ type: 'underline_save', normalForm: '평평', source: 'corrected' });
+      expect(response.body).toMatchObject({ type: 'underline_save', normalForm: null, source: 'corrected' });
+    });
+
+    it('clears the dictionary form when the text changes without a new one', async () => {
+      const { marks } = await createPage('AWAITING_CHECK', [{ type: 'underline_save', text: '겁먹', normalForm: '겁먹다' }]);
+      const response = await owner.patch(`/marks/${marks[0].id}`).send({ text: '겁먹고' }).expect(200);
+      expect(response.body).toMatchObject({ text: '겁먹고', normalForm: null });
+    });
+
+    it('keeps the dictionary form when only the sentence changes', async () => {
+      const { marks } = await createPage('AWAITING_CHECK', [{ type: 'underline_save', text: '겁먹고', normalForm: '겁먹다' }]);
+      const response = await owner.patch(`/marks/${marks[0].id}`).send({ sentence: '그는 겁먹고 도망쳤다.' }).expect(200);
+      expect(response.body).toMatchObject({ normalForm: '겁먹다', sentence: '그는 겁먹고 도망쳤다.' });
     });
 
     it('refuses to set a mark to unclear', async () => {
@@ -186,7 +199,7 @@ describe('Mark check', () => {
         .post(`/pages/${page.id}/marks`)
         .send({ type: 'underline_save', text: '기뻤다', sentence: '너무나 기뻤다.' })
         .expect(201);
-      expect(added.body).toMatchObject({ type: 'underline_save', text: '기뻤다', normalForm: '기뻤다', source: 'added', saved: true });
+      expect(added.body).toMatchObject({ type: 'underline_save', text: '기뻤다', normalForm: null, source: 'added', saved: true });
       const list = (await owner.get(`/pages/${page.id}/marks`).expect(200)).body as { id: string }[];
       expect(list.at(-1)!.id).toBe(added.body.id);
     });
