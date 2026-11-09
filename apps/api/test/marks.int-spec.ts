@@ -270,6 +270,14 @@ describe('Mark check', () => {
       expect(await usage.used(ownerId, new Date())).toBe(1); // a detection retry counts as a page again
     });
 
+    it('a detection retry clears the old detection result, so an old unusable verdict cannot show again', async () => {
+      const { page } = await createPage('FAILED', [], { failedStage: 'DETECTING' });
+      await prisma.page.update({ where: { id: page.id }, data: { detectionResult: { photo_usable: false, problem: 'Too dark.', marks: [] } } });
+      const response = await owner.post(`/pages/${page.id}/retry`).expect(200);
+      expect(response.body.photoUnusable).toBe(false);
+      expect((await pageRow(page.id)).detectionResult).toBeNull();
+    });
+
     it('a detection retry respects the daily limit', async () => {
       for (let i = 0; i < 5; i++) await usage.reserve(ownerId, new Date());
       const { page } = await createPage('FAILED', [], { failedStage: 'DETECTING' });

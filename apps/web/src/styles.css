@@ -1,0 +1,536 @@
+/*
+ * Chekmark: pencil marks on printed Korean pages.
+ * Paper and graphite, with HB-pencil yellow for the one main action on a screen.
+ * Korean text is set in a book serif and carries the reader's actual mark under it.
+ */
+:root {
+  --paper: #edefea;
+  --paper-raised: #f6f7f4;
+  --graphite: #26292b;
+  --lead: #686c70;
+  --rule: #cdd1cb;
+  --pencil: #f2b21b;
+  --pencil-deep: #c98f00;
+  --ink: #2e5a88;
+  --eraser: #c9576a;
+
+  --book: 'Gowun Batang', 'Nanum Myeongjo', 'AppleMyungjo', serif;
+  --ui: 'IBM Plex Sans KR', system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif;
+
+  --step--1: 0.8125rem;
+  --step-0: 1rem;
+  --step-1: 1.1875rem;
+  --step-2: 1.5rem;
+  --step-3: 2rem;
+
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--graphite);
+  font-family: var(--ui);
+  font-size: var(--step-0);
+  line-height: 1.5;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.shell {
+  max-width: 34rem;
+  margin: 0 auto;
+  padding: 0 1.25rem 7rem;
+}
+
+/* Header: the wordmark is set like a book title, with the beta tag beside it. */
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  padding: 1.25rem 0 1.5rem;
+}
+
+.wordmark {
+  font-family: var(--book);
+  font-weight: 700;
+  font-size: var(--step-2);
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+.beta {
+  font-size: var(--step--1);
+  font-weight: 600;
+  padding: 0.0625rem 0.5rem;
+  border: 1.5px solid var(--pencil-deep);
+  border-radius: 999px;
+  color: #6b4d00;
+}
+
+.topbar .spacer {
+  flex: 1;
+}
+
+.quiet-button {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--lead);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  padding: 0.5rem 0;
+  cursor: pointer;
+}
+
+h1 {
+  font-size: var(--step-3);
+  line-height: 1.15;
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+h2 {
+  font-size: var(--step-1);
+  margin: 2rem 0 0.75rem;
+  font-weight: 600;
+}
+
+.lede {
+  color: var(--lead);
+  margin: 0 0 1.5rem;
+  max-width: 30rem;
+}
+
+.korean {
+  font-family: var(--book);
+}
+
+/* Forms */
+label.field {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+label.field span {
+  display: block;
+  margin-bottom: 0.375rem;
+}
+
+input[type='text'],
+input[type='email'],
+input[type='number'] {
+  width: 100%;
+  font: inherit;
+  font-size: var(--step-1);
+  padding: 0.75rem 0.875rem;
+  border: 1.5px solid var(--rule);
+  border-radius: 0.5rem;
+  background: var(--paper-raised);
+  color: var(--graphite);
+}
+
+input:focus {
+  border-color: var(--graphite);
+}
+
+.button {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border-radius: 0.5rem;
+  border: 1.5px solid var(--graphite);
+  background: transparent;
+  color: var(--graphite);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button.primary {
+  background: var(--pencil);
+  border-color: var(--pencil);
+  color: var(--graphite);
+}
+
+.button.wide {
+  width: 100%;
+}
+
+.button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.error {
+  color: #9b2335;
+  font-weight: 500;
+  margin: 0.75rem 0;
+}
+
+.note {
+  color: var(--lead);
+  font-size: var(--step--1);
+}
+
+/* The one action that moves the reader forward sits at the bottom, under the thumb. */
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0.75rem 1.25rem calc(0.75rem + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--paper) 70%, transparent);
+}
+
+.action-bar > div {
+  max-width: 34rem;
+  margin: 0 auto;
+}
+
+/* Lists of books and pages: rows divided by a pencil rule, not boxes. */
+.rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--rule);
+}
+
+.rows > li {
+  border-bottom: 1px solid var(--rule);
+}
+
+.rows a.row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding: 1rem 0;
+  text-decoration: none;
+}
+
+.row .title {
+  font-family: var(--book);
+  font-size: var(--step-1);
+  flex: 1;
+}
+
+.row .meta {
+  color: var(--lead);
+  font-size: var(--step--1);
+}
+
+.inline-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+}
+
+.inline-form label.field {
+  flex: 1;
+  margin: 0;
+}
+
+/* Capture */
+.photo-picker {
+  display: block;
+  border: 2px dashed var(--rule);
+  border-radius: 0.75rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  background: var(--paper-raised);
+}
+
+.photo-picker input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+
+.photo-picker:focus-within {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+}
+
+.preview {
+  display: block;
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* Waiting: a pencil line being drawn under the page number. */
+.waiting {
+  padding: 2rem 0;
+}
+
+.drawn-line {
+  height: 3px;
+  width: 100%;
+  margin-top: 1rem;
+  background: linear-gradient(to right, var(--graphite) 0 40%, transparent 40%);
+  background-size: 250% 100%;
+  animation: draw 1.6s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+@keyframes draw {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawn-line {
+    animation: none;
+    background: var(--graphite);
+    opacity: 0.4;
+  }
+}
+
+/* Mark check */
+.beta-note {
+  border-left: 3px solid var(--pencil);
+  padding: 0.25rem 0 0.25rem 0.75rem;
+  color: var(--lead);
+  margin: 0 0 1.25rem;
+}
+
+details.photo {
+  margin-bottom: 1.25rem;
+}
+
+details.photo summary {
+  cursor: pointer;
+  font-weight: 500;
+  padding: 0.5rem 0;
+}
+
+details.photo img {
+  width: 100%;
+  border-radius: 0.5rem;
+}
+
+.marks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.marks > li {
+  padding: 0.875rem 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.mark-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.mark-tap {
+  appearance: none;
+  flex: 1;
+  border: 0;
+  background: none;
+  padding: 0.25rem 0;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  min-height: 3rem;
+}
+
+/* The mark itself: Korean in the book face, with the reader's pencil mark drawn under it. */
+.mark-text {
+  display: block;
+  font-family: var(--book);
+  font-size: var(--step-1);
+  line-height: 1.7;
+  text-decoration-line: underline;
+  text-underline-offset: 0.3em;
+  text-decoration-thickness: 2px;
+  text-decoration-skip-ink: none;
+}
+
+.mark-underline_save .mark-text {
+  text-decoration-color: var(--graphite);
+}
+
+.mark-underline_translate .mark-text {
+  text-decoration-color: var(--ink);
+}
+
+.mark-curly .mark-text {
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1.5px;
+  text-decoration-color: var(--graphite);
+}
+
+.mark-unclear .mark-text {
+  text-decoration-style: dotted;
+  text-decoration-thickness: 3px;
+  text-decoration-color: var(--eraser);
+}
+
+.mark-label {
+  display: block;
+  font-size: var(--step--1);
+  color: var(--lead);
+  margin-top: 0.125rem;
+}
+
+.mark-unclear .mark-label {
+  color: #9b2335;
+  font-weight: 600;
+}
+
+.mark-sentence {
+  font-family: var(--book);
+  color: var(--lead);
+  font-size: var(--step--1);
+  margin: 0.375rem 0 0;
+}
+
+/* The save switch: a small slider, yellow when the word is going to the word bank. */
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--step--1);
+  color: var(--lead);
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+
+.switch .track {
+  width: 2.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  background: var(--rule);
+  position: relative;
+  transition: background 0.15s;
+}
+
+.switch .track::after {
+  content: '';
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s;
+}
+
+.switch[aria-checked='true'] .track {
+  background: var(--pencil);
+}
+
+.switch[aria-checked='true'] .track::after {
+  transform: translateX(1rem);
+}
+
+.editor {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.choice {
+  appearance: none;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--rule);
+  background: var(--paper-raised);
+  font: inherit;
+  cursor: pointer;
+}
+
+.choice[aria-pressed='true'] {
+  border-color: var(--graphite);
+  background: var(--graphite);
+  color: var(--paper);
+}
+
+.remove {
+  appearance: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: #9b2335;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+  margin-left: auto;
+  padding: 0.5rem 0;
+}
+
+fieldset.types {
+  border: 0;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+fieldset.types legend {
+  font-weight: 500;
+  margin-bottom: 0.375rem;
+}
+
+fieldset.types label {
+  display: flex;
+  gap: 0.625rem;
+  align-items: center;
+  min-height: 2.75rem;
+}
+
+.add-form {
+  margin-top: 1.25rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: var(--paper-raised);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch .track,
+  .switch .track::after {
+    transition: none;
+  }
+}
