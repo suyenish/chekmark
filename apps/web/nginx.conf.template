@@ -1,4 +1,11 @@
-# Filled in at start: ${API_UPSTREAM} comes from the environment.
+# Filled in at start: ${API_UPSTREAM} comes from the environment, and ${NGINX_LOCAL_RESOLVERS}
+# is the container's own DNS server (read from /etc/resolv.conf by the nginx image).
+
+# Look the API up again every 10 seconds instead of once at start. On a platform such as Railway a
+# redeployed API gets a new address, and the API may not exist yet when the web server starts.
+resolver ${NGINX_LOCAL_RESOLVERS} valid=10s ipv6=on;
+resolver_timeout 3s;
+
 server {
   listen 8080;
   listen [::]:8080;
@@ -9,8 +16,10 @@ server {
   client_max_body_size 12m;
 
   # The API, on the same site, so the session cookie is a first-party cookie.
-  location /api/ {
-    proxy_pass http://${API_UPSTREAM}/;
+  # A variable in proxy_pass makes nginx resolve the name per request through the resolver above.
+  set $api_upstream ${API_UPSTREAM};
+  location ~ ^/api(/.*)$ {
+    proxy_pass http://$api_upstream$1$is_args$args;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;

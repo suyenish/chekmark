@@ -235,6 +235,20 @@ describe('explanations and the word bank', () => {
     expect(await counts()).toMatchObject({ items: 2, senses: 2, sightings: 3, cards: 2 });
   });
 
+  it('keeps one sense and one card for a word marked twice on a page, even when the two meanings are worded differently', async () => {
+    const { page, marks } = await createPage([
+      { type: 'underline_save', text: '가까스로', normalForm: '가까스로', sentence: '그는 가까스로 탈출했다.' },
+      { type: 'underline_save', text: '가까스로', normalForm: '가까스로', sentence: '가까스로 시간에 맞췄다.' },
+    ]);
+    // What a real model does: the same meaning, worded two ways.
+    fake.queue(explained(fresh(marks[0].id, 'barely'), fresh(marks[1].id, 'barely, with difficulty')));
+    await processor.process(job(page.id));
+    expect(await counts()).toMatchObject({ items: 1, senses: 1, sightings: 2, cards: 1 });
+    expect((await prisma.sense.findFirstOrThrow()).meaning).toBe('barely'); // the first mark's wording is kept
+    const card = await prisma.card.findFirstOrThrow({ include: { sighting: true } });
+    expect(card.sighting?.markId).toBe(marks[0].id);
+  });
+
   it('handles a curly or added word mark inside an underlined sentence as two separate results', async () => {
     const sentence = '비록 긴 줄의 끄트머리에 섰을 뿐이지만, 어쨌거나 표를 구했고 너무나 기뻤다.';
     const { page, marks } = await createPage([

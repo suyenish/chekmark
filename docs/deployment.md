@@ -91,7 +91,9 @@ Generate a public domain for `web` (Settings → Networking) with target port **
    Expected: `{"status":"ok","postgres":"up","redis":"up"}`.
 3. Open the site, sign in with your email, and check the link arrives.
 
-If `/api/health` answers 502, `web` cannot reach `api`: check `API_UPSTREAM`, and that `api` has `PORT=3000`.
+4. Redeploy `api` on its own, wait for it to finish, and run the `curl` again. It should still answer `ok`: the web server looks the API up every 10 seconds, so it follows a redeployed API to its new address without a restart.
+
+If `/api/health` answers 502, `web` cannot reach `api`: check `API_UPSTREAM`, and that `api` has `PORT=3000`. A 502 for a few seconds while `api` restarts is expected.
 
 ## Step 4: test on real phones
 

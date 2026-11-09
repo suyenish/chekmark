@@ -15,6 +15,8 @@ RUN pnpm --filter web build
 # nginx without root, listening on 8080.
 FROM nginxinc/nginx-unprivileged:1.29-alpine AS runtime
 ENV API_UPSTREAM=api:3000
+# Makes the image fill NGINX_LOCAL_RESOLVERS from /etc/resolv.conf for the template.
+ENV NGINX_ENTRYPOINT_LOCAL_RESOLVERS=1
 COPY apps/web/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /repo/apps/web/dist /usr/share/nginx/html
 EXPOSE 8080

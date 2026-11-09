@@ -56,11 +56,11 @@ function fakeApi(page: PageInfo, marks: MarkInfo[] = []) {
   return api;
 }
 
-function renderPage(api: ReturnType<typeof fakeApi>) {
+function renderPage(api: ReturnType<typeof fakeApi>, pollMs?: number) {
   return render(
     <ApiContext.Provider value={api as unknown as Api}>
       <MemoryRouter>
-        <PageScreen pageId="page-1" />
+        <PageScreen pageId="page-1" pollMs={pollMs} />
       </MemoryRouter>
     </ApiContext.Provider>,
   );
@@ -179,5 +179,18 @@ describe('page status', () => {
   it('shows progress while the marks are being read', async () => {
     renderPage(fakeApi({ ...basePage, status: 'DETECTING' }));
     expect(await screen.findByText(/Reading your pencil marks/)).toBeInTheDocument();
+  });
+
+  it('keeps checking after a failed request while the marks are read, and says so', async () => {
+    const api = fakeApi(basePage, [mark('m1', 'curly', '비록', 0)]);
+    api.getPage
+      .mockResolvedValueOnce({ ...basePage, status: 'DETECTING' })
+      .mockRejectedValueOnce(new Error('Could not reach Chekmark. Check your connection and try again.'))
+      .mockResolvedValue(basePage);
+    renderPage(api, 10);
+    expect(await screen.findByText(/Could not reach Chekmark/)).toBeInTheDocument();
+    expect(screen.getByText(/Reading your pencil marks/)).toBeInTheDocument(); // still waiting, not a dead end
+    expect(await screen.findByRole('button', { name: 'Confirm marks' })).toBeInTheDocument();
+    expect(screen.queryByText(/Could not reach Chekmark/)).toBeNull();
   });
 });
