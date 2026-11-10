@@ -42,7 +42,8 @@ export class ReviewService {
 
     return cards.map((card) => {
       const sighting = card.sighting ?? card.sense.sightings[0] ?? null;
-      const sentence = sighting?.sentence ?? card.sense.example ?? card.sense.item.normalForm;
+      // Composed form (NFC): the highlight position is measured in it, and the web app slices this same text.
+      const sentence = (sighting?.sentence ?? card.sense.example ?? card.sense.item.normalForm).normalize('NFC');
       return {
         cardId: card.id,
         kind: card.sense.item.kind,

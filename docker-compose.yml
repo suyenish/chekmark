@@ -49,7 +49,7 @@ services:
       retries: 10
 
   # The whole app in containers. Same images as production; NODE_ENV=development here so the
-  # sign-in link is printed in the api log and the photo bucket is created on start.
+  # sign-in screen shows the link when no email service is set, and the photo bucket is created on start.
   migrate:
     profiles: [app]
     build: { context: ., dockerfile: apps/api/Dockerfile }
@@ -65,8 +65,11 @@ services:
       S3_ACCESS_KEY_ID: local
       S3_SECRET_ACCESS_KEY: local
       APP_URL: http://localhost:8080
-      # Your own addresses from .env, plus the address the end-to-end test signs in with.
-      ALLOWED_EMAILS: "${ALLOWED_EMAILS:-},e2e@example.com"
+      # On your own machine anyone may sign in, and with no SMTP_URL the sign-in screen shows the link itself.
+      SIGN_UP: ${SIGN_UP:-open}
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+      SMTP_URL: ${SMTP_URL:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       AI_PROVIDER: ${AI_PROVIDER:-anthropic}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       AI_MODEL: ${AI_MODEL:-}

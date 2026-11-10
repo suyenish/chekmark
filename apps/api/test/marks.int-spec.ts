@@ -267,6 +267,7 @@ describe('Mark check', () => {
       const response = await owner.post(`/pages/${page.id}/retry`).expect(200);
       expect(response.body).toMatchObject({ status: 'UPLOADED', failedStage: null, failureReason: null });
       expect(queue.detection).toEqual([page.id]);
+      expect(queue.retries).toEqual([page.id]); // a new job, not one that an old failing job could swallow
       expect(await usage.used(ownerId, new Date())).toBe(1); // a detection retry counts as a page again
     });
 
@@ -291,6 +292,7 @@ describe('Mark check', () => {
       const response = await owner.post(`/pages/${page.id}/retry`).expect(200);
       expect(response.body.status).toBe('EXPLAINING');
       expect(queue.explanation).toEqual([page.id]);
+      expect(queue.retries).toEqual([page.id]);
       expect(queue.detection).toEqual([]);
       expect(await usage.used(ownerId, new Date())).toBe(0);
     });

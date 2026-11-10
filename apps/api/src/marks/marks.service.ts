@@ -136,7 +136,7 @@ export class MarksService {
     if (page.failedStage === 'EXPLAINING') {
       await this.usage.assertBudgetAvailable(now);
       if (!(await movePage(this.prisma, pageId, 'FAILED', 'EXPLAINING'))) throw new ConflictException('This page is already being retried.');
-      await this.enqueue(() => this.queue.enqueueExplanation(pageId), pageId);
+      await this.enqueue(() => this.queue.enqueueExplanation(pageId, { retry: true }), pageId);
     } else {
       if (page.photoDeletedAt) {
         throw new ConflictException('The photo of this page has been deleted. Please upload the page again.');
@@ -148,7 +148,7 @@ export class MarksService {
       }
       // The new detection replaces the old answer, including an "unusable photo" verdict.
       await this.prisma.page.update({ where: { id: pageId }, data: { detectionResult: Prisma.DbNull } });
-      await this.enqueue(() => this.queue.enqueueDetection(pageId), pageId);
+      await this.enqueue(() => this.queue.enqueueDetection(pageId, { retry: true }), pageId);
     }
     return this.prisma.page.findUniqueOrThrow({ where: { id: pageId } });
   }

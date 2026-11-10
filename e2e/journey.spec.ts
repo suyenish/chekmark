@@ -1,44 +1,22 @@
-import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { expect, type Page, test } from '@playwright/test';
 
-const EMAIL = 'e2e@example.com';
+const EMAIL = `e2e-${Date.now()}@example.com`;
 const PHOTO = path.join(__dirname, 'fixtures/page.jpg');
 
-const usedLinks = new Set<string>();
-
 /**
- * In this stack there is no email server: the api prints the sign-in link in
- * its log. Wait for a link for EMAIL that this test has not used yet.
+ * The local stack has no email service, so the sign-in screen shows the link
+ * itself. A new address each run keeps runs apart from each other.
  */
-async function signInLink(after: Date): Promise<string> {
-  for (let attempt = 0; attempt < 40; attempt++) {
-    const since = new Date(after.getTime() - 5000).toISOString();
-    const logs = execFileSync('docker', ['compose', '--profile', 'app', 'logs', 'api', '--no-color', '--since', since], { encoding: 'utf8' })
-      // The api colours its own log lines; remove the colour codes around the link.
-      .replace(/\u001b\[[0-9;]*m/g, '');
-    const fresh = [...logs.matchAll(new RegExp(`Sign-in link for ${EMAIL}: (\\S+)`, 'g'))].map((m) => m[1]).filter((link) => !usedLinks.has(link));
-    if (fresh.length) {
-      usedLinks.add(fresh.at(-1)!);
-      return fresh.at(-1)!;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 500));
-  }
-  throw new Error('No new sign-in link appeared in the api log');
-}
-
 async function signIn(page: Page) {
   await page.goto('/');
   await expect(page).toHaveURL(/\/sign-in/);
-  const requestedAt = new Date();
   await page.getByLabel('Email').fill(EMAIL);
   await page.getByRole('button', { name: 'Email me a sign-in link' }).click();
-  await expect(page.getByRole('heading', { name: 'Check your email' })).toBeVisible();
-  await page.goto(await signInLink(requestedAt));
+  await page.getByRole('link', { name: 'Sign in with this link' }).click();
   await expect(page.getByRole('heading', { name: 'Your books' })).toBeVisible();
 }
 
-/** Starts every run from an empty account, even after a run that stopped half-way. */
 async function deleteAccount(page: Page) {
   await page.getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Delete account' }).click();
@@ -56,8 +34,6 @@ async function uploadPage(page: Page, pageNumber: number) {
 }
 
 test('full journey with the fake AI client', async ({ page }) => {
-  await signIn(page);
-  await deleteAccount(page);
   await signIn(page);
 
   // Create a book and upload a page.

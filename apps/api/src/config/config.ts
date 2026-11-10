@@ -23,6 +23,8 @@ const envSchema = z.object({
       .transform((list) => list.split(',').map((email) => email.trim().toLowerCase()).filter(Boolean))
       .pipe(z.array(z.email())),
   ),
+  /** Who may sign in: only ALLOWED_EMAILS (allowlist), or anyone with an email address (open). */
+  SIGN_UP: text(z.enum(['allowlist', 'open']).default('allowlist')),
   /** Where the web app runs. Sign-in links point here. */
   APP_URL: text(z.url().default('http://localhost:5173').transform((url) => url.replace(/\/+$/, ''))),
   /** For example smtps://user:password@smtp.example.com:465. Without it, links are only logged. */
@@ -49,6 +51,9 @@ const envSchema = z.object({
   }
   if (env.S3_SECRET_ACCESS_KEY && !env.S3_ACCESS_KEY_ID) {
     ctx.addIssue({ code: 'custom', path: ['S3_ACCESS_KEY_ID'], message: 'is required when S3_SECRET_ACCESS_KEY is set' });
+  }
+  if (env.NODE_ENV === 'production' && env.SIGN_UP === 'allowlist' && env.ALLOWED_EMAILS.length === 0) {
+    ctx.addIssue({ code: 'custom', path: ['ALLOWED_EMAILS'], message: 'needs at least one address when SIGN_UP is allowlist, or nobody can sign in' });
   }
   if (env.NODE_ENV === 'production' && env.AI_PROVIDER === 'fake') {
     ctx.addIssue({ code: 'custom', path: ['AI_PROVIDER'], message: 'cannot be fake in production' });
@@ -87,6 +92,7 @@ function toConfig(env: z.infer<typeof envSchema>) {
     aiMonthlyBudgetUsd: env.AI_MONTHLY_BUDGET_USD,
     dailyPageLimit: env.DAILY_PAGE_LIMIT,
     allowedEmails: env.ALLOWED_EMAILS,
+    signUp: env.SIGN_UP,
     appUrl: env.APP_URL,
     smtpUrl: env.SMTP_URL ?? null,
     mailFrom: env.MAIL_FROM,

@@ -9,6 +9,7 @@ import type { PageStatus } from '../src/generated/prisma/client.js';
 import { createRedisConnection, EXPIRED_PHOTO_CHECK, MAINTENANCE_QUEUE, PAGE_QUEUE } from '../src/jobs/queues.js';
 import { PHOTO_STORE } from '../src/photos/photo-store.js';
 import { deleteExpiredPhotos, PHOTO_RETENTION_MS } from '../src/photos/photo-retention.js';
+import { deleteExpiredSignIns } from '../src/accounts/sign-in-cleanup.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { WorkerModule } from '../src/worker.module.js';
 import { FakePageQueue } from './helpers/fake-page-queue.js';
@@ -187,6 +188,32 @@ describe('photo retention and account deletion', () => {
     });
   });
 
+  describe('deleteExpiredSignIns', () => {
+    it('removes expired sessions and old sign-in links, and keeps live ones', async () => {
+      const now = new Date();
+      const day = 24 * 60 * 60 * 1000;
+      await prisma.session.createMany({
+        data: [
+          { userId: ownerId, tokenHash: 'expired-session', expiresAt: new Date(now.getTime() - 1000) },
+          { userId: ownerId, tokenHash: 'live-session', expiresAt: new Date(now.getTime() + day) },
+        ],
+      });
+      await prisma.loginToken.createMany({
+        data: [
+          { email: 'a@example.com', tokenHash: 'old-link', expiresAt: new Date(now.getTime() - 2 * day) },
+          { email: 'a@example.com', tokenHash: 'just-expired-link', expiresAt: new Date(now.getTime() - 60_000) },
+          { email: 'a@example.com', tokenHash: 'live-link', expiresAt: new Date(now.getTime() + 60_000) },
+        ],
+      });
+      const removed = await deleteExpiredSignIns(prisma, now);
+      expect(removed).toEqual({ sessions: 1, links: 1 });
+      expect(await prisma.session.count({ where: { tokenHash: { in: ['expired-session', 'live-session'] } } })).toBe(1);
+      // A link that expired a minute ago stays for a day, so "expired" can still be told from "never existed" in the logs.
+      expect((await prisma.loginToken.findMany({ where: { email: 'a@example.com' } })).map((t) => t.tokenHash).sort()).toEqual(['just-expired-link', 'live-link']);
+      await owner.get('/me').expect(200); // the owner's own live session is untouched
+    });
+  });
+
   describe('DELETE /pages/:id/photo', () => {
     it('deletes one photo on request', async () => {
       const page = await createPage('DONE', 1);
@@ -251,6 +278,11 @@ describe('photo retention and account deletion', () => {
       }
       expect([...photos.photos.keys()].filter((key) => key.includes(ownerId))).toEqual([]);
       await owner.get('/me').expect(401);
+
+      // The money was still spent: the cost record stays, no longer tied to anyone, and still counts towards the budget.
+      const calls = await prisma.aiCall.findMany();
+      expect(calls).toHaveLength(1);
+      expect(calls[0]).toMatchObject({ userId: null, pageId: null, purpose: 'detect' });
 
       // The other reader is untouched.
       expect(photos.photos.has(theirs.photoKey)).toBe(true);

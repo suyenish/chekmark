@@ -132,9 +132,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Normally empty. On a developer's own machine with no email service, the
+ * server returns the link (or says the address is not allowed) so the screen can show it.
+ */
+export interface RequestLinkAnswer {
+  dev?: { link: string } | { notAllowed: true };
+}
+
 export interface Api {
   me(): Promise<User | null>;
-  requestLink(email: string): Promise<void>;
+  requestLink(email: string): Promise<RequestLinkAnswer>;
   verify(token: string): Promise<User>;
   logout(): Promise<void>;
   listBooks(): Promise<Book[]>;
@@ -194,7 +202,7 @@ export const httpApi: Api = {
       throw error;
     }
   },
-  requestLink: (email) => call('POST', '/auth/request-link', { email }),
+  requestLink: async (email) => (await call<RequestLinkAnswer | null>('POST', '/auth/request-link', { email })) ?? {},
   verify: (token) => call('POST', '/auth/verify', { token }),
   logout: () => call('POST', '/auth/logout'),
   listBooks: () => call('GET', '/books'),

@@ -19,9 +19,21 @@ export type PageJob = { pageId: string };
 
 /** Puts page work on the queue. Adding a page that is already waiting does nothing. */
 export interface PageQueue {
-  enqueueDetection(pageId: string): Promise<void>;
-  enqueueExplanation(pageId: string): Promise<void>;
+  enqueueDetection(pageId: string, options?: EnqueueOptions): Promise<void>;
+  enqueueExplanation(pageId: string, options?: EnqueueOptions): Promise<void>;
 }
+
+export interface EnqueueOptions {
+  /**
+   * The reader pressed Retry. The job gets its own ID, so it is queued even
+   * if the page's earlier, failing job has not been cleared away yet. (The
+   * page's status change already makes sure a double tap queues only one.)
+   */
+  retry?: boolean;
+}
+
+const jobId = (prefix: string, pageId: string, options?: EnqueueOptions) =>
+  options?.retry ? `${prefix}-${pageId}-retry-${Date.now()}` : `${prefix}-${pageId}`;
 
 /** Nest injection token for the API's fail-fast Redis connection. */
 export const REDIS = Symbol('REDIS');
@@ -91,14 +103,14 @@ export class BullMqPageQueue implements PageQueue {
     await Promise.all([this.detection.waitUntilReady(), this.explanation.waitUntilReady()]);
   }
 
-  async enqueueDetection(pageId: string): Promise<void> {
+  async enqueueDetection(pageId: string, options?: EnqueueOptions): Promise<void> {
     this.assertConnected();
-    await this.detection.add('detect', { pageId }, { ...PAGE_JOB_OPTIONS, jobId: `detect-${pageId}` });
+    await this.detection.add('detect', { pageId }, { ...PAGE_JOB_OPTIONS, jobId: jobId('detect', pageId, options) });
   }
 
-  async enqueueExplanation(pageId: string): Promise<void> {
+  async enqueueExplanation(pageId: string, options?: EnqueueOptions): Promise<void> {
     this.assertConnected();
-    await this.explanation.add('explain', { pageId }, { ...PAGE_JOB_OPTIONS, jobId: `explain-${pageId}` });
+    await this.explanation.add('explain', { pageId }, { ...PAGE_JOB_OPTIONS, jobId: jobId('explain', pageId, options) });
   }
 
   /**

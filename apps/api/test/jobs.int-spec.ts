@@ -18,7 +18,7 @@ import {
   STUCK_PAGE_CHECK,
   scheduleStuckPageCheck,
 } from '../src/jobs/queues.js';
-import { requeueStuckPages, STUCK_AFTER_MS } from '../src/jobs/stuck-pages.js';
+import { GIVE_UP_AFTER_MS, requeueStuckPages, STUCK_AFTER_MS } from '../src/jobs/stuck-pages.js';
 import { PHOTO_STORE } from '../src/photos/photo-store.js';
 import { PrismaService } from '../src/prisma/prisma.service.js';
 import { WorkerModule } from '../src/worker.module.js';
@@ -128,6 +128,17 @@ describe('job queue and page status', () => {
       expect((await explanation.getWaiting()).map((job) => job.id)).toEqual(['explain-page-1']);
     });
 
+    it('a retry queues a new job even while the page\'s earlier job is still there', async () => {
+      await detection.obliterate({ force: true });
+      await explanation.obliterate({ force: true });
+      await pageQueue.enqueueDetection('page-9');
+      await pageQueue.enqueueDetection('page-9', { retry: true });
+      expect(await detection.getWaitingCount()).toBe(2);
+      await pageQueue.enqueueExplanation('page-9');
+      await pageQueue.enqueueExplanation('page-9', { retry: true });
+      expect(await explanation.getWaitingCount()).toBe(2);
+    });
+
     it('uses 3 attempts with increasing delays', async () => {
       await pageQueue.enqueueDetection('page-2');
       const job = (await detection.getJob('detect-page-2'))!;
@@ -191,6 +202,25 @@ describe('job queue and page status', () => {
       expect(queue.explanation).toEqual([explaining.id]);
       // Status is left as it is: the job itself moves the page on.
       expect((await prisma.page.findUniqueOrThrow({ where: { id: detecting.id } })).status).toBe('DETECTING');
+    });
+
+    it('gives up on a page still working after an hour: FAILED with a retry, usage given back, no more AI calls', async () => {
+      expect(GIVE_UP_AFTER_MS).toBe(60 * 60 * 1000);
+      const longAgo = new Date(now.getTime() - GIVE_UP_AFTER_MS - 1000);
+      const detecting = await createPage('DETECTING', longAgo);
+      const explaining = await createPage('EXPLAINING', longAgo);
+      const uploaded = await createPage('UPLOADED', longAgo); // never started: keeps waiting for the queue
+      const released: string[] = [];
+      const usage = { release: async (user: string) => void released.push(user) };
+
+      expect(await requeueStuckPages(prisma, queue, now, usage)).toBe(1);
+      expect(queue.detection).toEqual([uploaded.id]);
+      expect(queue.explanation).toEqual([]);
+      const failedDetecting = await prisma.page.findUniqueOrThrow({ where: { id: detecting.id } });
+      expect(failedDetecting).toMatchObject({ status: 'FAILED', failedStage: 'DETECTING' });
+      expect(failedDetecting.failureReason).toMatch(/took too long/i);
+      expect(await prisma.page.findUniqueOrThrow({ where: { id: explaining.id } })).toMatchObject({ status: 'FAILED', failedStage: 'EXPLAINING' });
+      expect(released).toEqual([userId]); // only detection counts as a page
     });
 
     it('does not requeue recent pages, or AWAITING_CHECK, DONE and FAILED pages', async () => {

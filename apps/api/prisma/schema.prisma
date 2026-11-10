@@ -243,7 +243,8 @@ model AiCall {
   durationMs   Int            @map("duration_ms")
   createdAt    DateTime       @default(now()) @map("created_at")
 
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// Cost records outlive the account and the page: the money was spent, and the monthly budget is their sum.
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
   page Page? @relation(fields: [pageId], references: [id], onDelete: SetNull)
 
   @@index([createdAt])
