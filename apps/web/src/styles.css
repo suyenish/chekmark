@@ -29,6 +29,19 @@ body {
   line-height: 1.75;
 }
 
+/*
+ * Korean lines break at spaces, never inside a word (the browser default
+ * allows a break after any syllable: 깔끔하 / 게). A single word too long for
+ * the line may still break, so nothing overflows the screen.
+ */
+.korean,
+.mark-text,
+.card-sentence,
+[lang='ko'] {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
 .alert-slot {
   display: block;
 }
@@ -141,9 +154,13 @@ body {
 }
 
 .card-sentence mark {
-  background: linear-gradient(transparent 55%, var(--mark-highlight) 55%);
+  /* The whole word, top to bottom, like a highlighter pen. If the word wraps, each part keeps its own rounded ends. */
+  background: var(--mark-highlight);
   color: inherit;
-  padding: 0 0.05em;
+  padding: 0.08em 0.12em;
+  border-radius: 0.2em;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }
 
 /* "You saw this before" sits in the margin, like a note pencilled beside the text. */
