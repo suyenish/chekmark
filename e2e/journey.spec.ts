@@ -92,3 +92,19 @@ test('full journey with the fake AI client', async ({ page }) => {
   // Leave nothing behind.
   await deleteAccount(page);
 });
+
+test('on a wide screen the bottom button sits under the content column, not at the left edge', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(page);
+  await page.getByLabel('Title').fill('Layout check');
+  await page.getByRole('button', { name: 'Add book' }).click();
+  await page.getByRole('link', { name: /Layout check/ }).click();
+
+  const button = await page.getByRole('link', { name: 'Add a page' }).boundingBox();
+  const column = await page.getByRole('main').boundingBox();
+  expect(Math.round(button!.x)).toBe(Math.round(column!.x));
+  expect(Math.round(button!.x + button!.width)).toBe(Math.round(column!.x + column!.width));
+  expect(Math.round(button!.x + button!.width / 2)).toBe(720); // the middle of a 1440 px screen
+
+  await deleteAccount(page);
+});
