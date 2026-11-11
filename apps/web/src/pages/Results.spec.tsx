@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
-import { type Api, ApiContext, type PageInfo, type PageResult } from '../api';
+import type { Api, PageInfo, PageResult } from '../api';
+import { TestApp } from '../test-app';
 import { Results } from './Results';
 
 const page: PageInfo = {
@@ -54,11 +54,9 @@ const results: PageResult[] = [
 
 function renderResults(api: Partial<Api>) {
   return render(
-    <ApiContext.Provider value={api as Api}>
-      <MemoryRouter>
-        <Results page={page} onPhotoDeleted={() => {}} />
-      </MemoryRouter>
-    </ApiContext.Provider>,
+    <TestApp api={api}>
+      <Results page={page} onPhotoDeleted={() => {}} />
+    </TestApp>,
   );
 }
 

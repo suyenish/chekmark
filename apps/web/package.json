@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "oxlint src/"
+    "lint": "oxlint src/ --ignore-pattern 'src/themes/**/chekmark*.d.ts' --ignore-pattern 'src/themes/**/chekmark.js' --ignore-pattern src/astryx-themes.ts",
+    "theme": "astryx theme build src/themes/chekmark/chekmarkTheme.ts"
   },
   "dependencies": {
     "@astryxdesign/core": "^0.7.12",

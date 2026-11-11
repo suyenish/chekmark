@@ -1,6 +1,26 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Button } from '@astryxdesign/core/Button';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { List, ListItem } from '@astryxdesign/core/List';
+import { Skeleton } from '@astryxdesign/core/Skeleton';
+import { StackItem } from '@astryxdesign/core/Stack';
+import { StatusDot } from '@astryxdesign/core/StatusDot';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
+import { useParams } from 'react-router';
 import { type Book, messageOf, type PageInfo, type PageStatus, useApi } from '../api';
+import { ErrorNote } from '../ui';
+
+const Loading = () => (
+  <VStack gap={2} aria-label="Loading">
+    <Skeleton height={56} index={0} />
+    <Skeleton height={56} index={1} />
+    <Skeleton height={56} index={2} />
+  </VStack>
+);
 
 /** The reader's books. Creating one is the first step for a new reader. */
 export function Books() {
@@ -8,6 +28,7 @@ export function Books() {
   const [books, setBooks] = useState<Book[] | null>(null);
   const [title, setTitle] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api.listBooks().then(setBooks, (e: unknown) => setError(messageOf(e)));
@@ -15,62 +36,76 @@ export function Books() {
 
   async function add(event: FormEvent) {
     event.preventDefault();
+    if (!title.trim()) return;
     setError(null);
+    setBusy(true);
     try {
       const book = await api.createBook(title.trim());
       setBooks((list) => [{ ...book, pageCount: 0 }, ...(list ?? [])]);
       setTitle('');
     } catch (e) {
       setError(messageOf(e));
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <>
-      <h1>Your books</h1>
-      {books && books.length === 0 && <p className="lede">Add the book you are reading to start.</p>}
+    <VStack gap={6}>
+      <VStack gap={2}>
+        <Heading level={1}>Your books</Heading>
+        {books?.length === 0 && (
+          <Text type="large" color="secondary" as="p">
+            Add the book you are reading. Then mark a page with a pencil and take a photo of it.
+          </Text>
+        )}
+      </VStack>
+
+      {!books && !error && <Loading />}
       {books && books.length > 0 && (
-        <ul className="rows">
+        <List hasDividers edge="flush" density="spacious">
           {books.map((book) => (
-            <li key={book.id}>
-              <Link className="row" to={`/books/${book.id}`}>
-                <span className="title" lang="ko">
-                  {book.title}
-                </span>
-                <span className="meta">
-                  {book.pageCount ?? 0} page{book.pageCount === 1 ? '' : 's'}
-                </span>
-              </Link>
-            </li>
+            <ListItem
+              key={book.id}
+              href={`/books/${book.id}`}
+              label={
+                <Text type="large">
+                  <span className="korean" lang="ko">
+                    {book.title}
+                  </span>
+                </Text>
+              }
+              description={`${book.pageCount ?? 0} page${book.pageCount === 1 ? '' : 's'}`}
+            />
           ))}
-        </ul>
+        </List>
       )}
-      <h2>Add a book</h2>
-      <form className="inline-form" onSubmit={add}>
-        <label className="field">
-          <span>Title</span>
-          <input type="text" lang="ko" required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} />
-        </label>
-        <button type="submit" className="button" disabled={!title.trim()}>
-          Add book
-        </button>
+
+      <form onSubmit={add}>
+        <VStack gap={3}>
+          <Heading level={2}>Add a book</Heading>
+          <HStack gap={2} vAlign="end">
+            <StackItem size="fill">
+              <TextInput label="Title" description="As printed on the cover." value={title} onChange={setTitle} width="100%" />
+            </StackItem>
+            <StackItem size="static">
+              <Button label="Add book" type="submit" isDisabled={!title.trim()} isLoading={busy} />
+            </StackItem>
+          </HStack>
+        </VStack>
       </form>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-    </>
+      <ErrorNote message={error} />
+    </VStack>
   );
 }
 
-const STATUS_TEXT: Record<PageStatus, string> = {
-  UPLOADED: 'Waiting to be read',
-  DETECTING: 'Reading marks',
-  AWAITING_CHECK: 'Ready for your check',
-  EXPLAINING: 'Writing explanations',
-  DONE: 'Finished',
-  FAILED: 'Needs attention',
+const STATUS: Record<PageStatus, { text: string; dot: 'neutral' | 'warning' | 'success' | 'error' | 'accent' }> = {
+  UPLOADED: { text: 'Waiting to be read', dot: 'neutral' },
+  DETECTING: { text: 'Reading marks', dot: 'neutral' },
+  AWAITING_CHECK: { text: 'Ready for your check', dot: 'warning' },
+  EXPLAINING: { text: 'Writing explanations', dot: 'neutral' },
+  DONE: { text: 'Finished', dot: 'success' },
+  FAILED: { text: 'Needs attention', dot: 'error' },
 };
 
 /** One book: its pages, and the way to add the next one. */
@@ -91,38 +126,50 @@ export function BookPages() {
     );
   }, [api, bookId]);
 
-  if (error) return <p className="error">{error}</p>;
-  if (!book || !pages) return <p className="note">Loading…</p>;
+  if (error) {
+    return (
+      <VStack gap={3} hAlign="start">
+        <ErrorNote message={error} />
+        <Link href="/" isStandalone>
+          Back to your books
+        </Link>
+      </VStack>
+    );
+  }
+  if (!book || !pages) return <Loading />;
 
   return (
-    <>
-      <p>
-        <Link to="/">All books</Link>
-      </p>
-      <h1 className="korean" lang="ko">
-        {book.title}
-      </h1>
+    <VStack gap={5}>
+      <VStack gap={2} hAlign="start">
+        <Link href="/" isStandalone>
+          All books
+        </Link>
+        <Heading level={1}>
+          <span className="korean" lang="ko">
+            {book.title}
+          </span>
+        </Heading>
+      </VStack>
       {pages.length === 0 ? (
-        <p className="lede">Mark a page with a pencil, then take a photo of it.</p>
+        <Text type="large" color="secondary" as="p">
+          No pages yet. Mark a page with a pencil, then add a photo of it.
+        </Text>
       ) : (
-        <ul className="rows">
+        <List hasDividers edge="flush" density="spacious">
           {pages.map((page) => (
-            <li key={page.id}>
-              <Link className="row" to={`/pages/${page.id}`}>
-                <span className="title">Page {page.pageNumber}</span>
-                <span className="meta">{STATUS_TEXT[page.status]}</span>
-              </Link>
-            </li>
+            <ListItem
+              key={page.id}
+              href={`/pages/${page.id}`}
+              label={`Page ${page.pageNumber}`}
+              description={STATUS[page.status].text}
+              endContent={<StatusDot variant={STATUS[page.status].dot} label={STATUS[page.status].text} />}
+            />
           ))}
-        </ul>
+        </List>
       )}
       <div className="action-bar">
-        <div>
-          <Link className="button primary wide" to={`/books/${book.id}/capture`}>
-            Add a page
-          </Link>
-        </div>
+        <Button label="Add a page" variant="primary" size="lg" width="100%" href={`/books/${book.id}/capture`} />
       </div>
-    </>
+    </VStack>
   );
 }

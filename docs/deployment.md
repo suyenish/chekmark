@@ -57,13 +57,25 @@ Set the same variables on both (Railway's shared variables make this easier):
 | `AI_INPUT_COST_PER_MTOK`, `AI_OUTPUT_COST_PER_MTOK` | `0.1`, `0.5` (check current Haiku prices) |
 | `AI_MONTHLY_BUDGET_USD` | `20` |
 | `DAILY_PAGE_LIMIT` | `5` |
-| `ALLOWED_EMAILS` | your email |
+| `SIGN_UP` | `allowlist` (only `ALLOWED_EMAILS` can sign in) or `open` (anyone with an email address). Start with `allowlist` |
+| `ALLOWED_EMAILS` | your email, and anyone you invite, separated by commas |
 | `OWNER_EMAIL` | your email (gets the budget alert) |
-| `APP_URL` | the web service's public URL, for example `https://chekmark.up.railway.app` |
+| `APP_URL` | the web service's public URL, for example `https://chekmark.up.railway.app`. It must match the address in the browser exactly: sign-in links point to it, and requests from any other site are refused |
 | `SMTP_URL` | `smtps://resend:<resend-api-key>@smtp.resend.com:465` |
 | `MAIL_FROM` | `Chekmark <onboarding@resend.dev>` |
 
 Leave `AI_PROVIDER` unset: the app refuses `fake` in production.
+
+### Opening sign-up to everyone
+
+`SIGN_UP=open` lets any address sign in. Before you switch it on:
+
+- Resend's `onboarding@resend.dev` sender only reaches your own address. To email other people, verify your own domain with your email provider and set `MAIL_FROM` to an address on it.
+- Check the three cost controls: `DAILY_PAGE_LIMIT` (pages per reader per day), `AI_MONTHLY_BUDGET_USD` (the whole app pauses new pages when it is reached, and `OWNER_EMAIL` is told once), and the spend limit in the Anthropic console.
+- Read the privacy page at `/privacy` and change anything that is not true for how you run the app.
+- Use your own domain rather than the shared `up.railway.app` one.
+
+The app limits sign-in links to 5 per address in 15 minutes and 300 an hour in total, so the form cannot be used to flood an inbox.
 
 ### Commands
 
@@ -89,7 +101,7 @@ Generate a public domain for `web` (Settings → Networking) with target port **
    ```
 
    Expected: `{"status":"ok","postgres":"up","redis":"up"}`.
-3. Open the site, sign in with your email, and check the link arrives.
+3. Open the site, sign in with your email, and check the link arrives. If it does not: the `api` log says at start whether the email server is reachable ("Email server is reachable" or "Cannot reach the email server"), and the sign-in screen says so when an email could not be sent.
 
 4. Redeploy `api` on its own, wait for it to finish, and run the `curl` again. It should still answer `ok`: the web server looks the API up every 10 seconds, so it follows a redeployed API to its new address without a restart.
 
@@ -118,7 +130,7 @@ Record what you found:
 docker compose --profile app up -d --build
 ```
 
-The app is at http://localhost:8080. Sign-in links appear in `docker compose logs api`. To try it without calling Claude, start it with `AI_PROVIDER=fake` in front.
+The app is at http://localhost:8080. Any address can sign in there, and because no email service is set, the sign-in screen shows the link itself. To try it without calling Claude, start it with `AI_PROVIDER=fake` in front.
 
 ## The end-to-end test
 
@@ -129,7 +141,7 @@ AI_PROVIDER=fake docker compose --profile app up -d --build
 pnpm e2e
 ```
 
-It signs in as `e2e@example.com`, deletes that account first and last, and leaves nothing behind.
+It signs in with a new `e2e-…@example.com` address each run, deletes that account at the end, and leaves nothing behind. GitHub Actions runs it, with every other test, on each push (`.github/workflows/ci.yml`).
 
 ## Stage 1 exit check
 

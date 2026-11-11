@@ -1,0 +1,9 @@
+/*
+ * The Chekmark theme's fonts, bundled with the app: no request to a font service, and they work offline.
+ * Gowun Batang carries every piece of Korean book text. The interface font needs only its Latin files.
+ */
+@import '@fontsource/gowun-batang/400.css';
+@import '@fontsource/gowun-batang/700.css';
+@import '@fontsource/ibm-plex-sans-kr/latin-400.css';
+@import '@fontsource/ibm-plex-sans-kr/latin-500.css';
+@import '@fontsource/ibm-plex-sans-kr/latin-600.css';

@@ -1,64 +1,80 @@
 import { type FormEvent, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router';
+import { AlertDialog } from '@astryxdesign/core/AlertDialog';
+import { Button } from '@astryxdesign/core/Button';
+import { Card } from '@astryxdesign/core/Card';
+import { Divider } from '@astryxdesign/core/Divider';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { List, ListItem } from '@astryxdesign/core/List';
+import { SegmentedControl, SegmentedControlItem } from '@astryxdesign/core/SegmentedControl';
+import { Skeleton } from '@astryxdesign/core/Skeleton';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
+import { useNavigate, useParams } from 'react-router';
 import { type ItemDetail, type ItemKind, type ItemSummary, messageOf, type Sense, useApi } from '../api';
-
-const FILTERS: { kind: ItemKind | undefined; label: string }[] = [
-  { kind: undefined, label: 'All' },
-  { kind: 'word', label: 'Words' },
-  { kind: 'grammar', label: 'Grammar' },
-];
+import { ErrorNote } from '../ui';
 
 /** Every saved word and grammar pattern, newest first, searchable by form or meaning. */
 export function WordBank() {
   const api = useApi();
   const [q, setQ] = useState('');
-  const [kind, setKind] = useState<ItemKind | undefined>(undefined);
+  const [kind, setKind] = useState<'all' | ItemKind>('all');
   const [items, setItems] = useState<ItemSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const latest = useRef(0);
 
   useEffect(() => {
     const request = ++latest.current; // only the newest search may update the list
-    api.listItems({ q, kind }).then(
+    api.listItems({ q, kind: kind === 'all' ? undefined : kind }).then(
       (found) => request === latest.current && setItems(found),
       (e: unknown) => request === latest.current && setError(messageOf(e)),
     );
   }, [api, q, kind]);
 
+  const filtering = q.trim() !== '' || kind !== 'all';
+
   return (
-    <>
-      <h1>Word bank</h1>
-      <label className="field">
-        <span className="visually-hidden">Search your word bank</span>
-        <input type="search" aria-label="Search your word bank" placeholder="Search by word or meaning" value={q} onChange={(e) => setQ(e.target.value)} />
-      </label>
-      <div className="filters" role="radiogroup" aria-label="Show">
-        {FILTERS.map((filter) => (
-          <label key={filter.label} className="choice-label">
-            <input type="radio" name="kind" checked={kind === filter.kind} onChange={() => setKind(filter.kind)} />
-            <span className="choice">{filter.label}</span>
-          </label>
-        ))}
-      </div>
-      {error && <p className="error">{error}</p>}
-      {items && items.length === 0 && (
-        <p className="lede">{q || kind ? 'Nothing matches that search.' : 'Words and grammar you mark will appear here after you confirm a page.'}</p>
+    <VStack gap={4}>
+      <Heading level={1}>Word bank</Heading>
+      <TextInput label="Search your word bank" isLabelHidden type="search" placeholder="Search by word or meaning" value={q} onChange={setQ} hasClear />
+      <SegmentedControl label="Show" value={kind} onChange={(value) => setKind(value as 'all' | ItemKind)}>
+        <SegmentedControlItem value="all" label="All" />
+        <SegmentedControlItem value="word" label="Words" />
+        <SegmentedControlItem value="grammar" label="Grammar" />
+      </SegmentedControl>
+      <ErrorNote message={error} />
+      {!items && !error && (
+        <VStack gap={2} aria-label="Loading">
+          <Skeleton height={56} />
+          <Skeleton height={56} index={1} />
+        </VStack>
+      )}
+      {items?.length === 0 && (
+        <Text type="large" color="secondary" as="p">
+          {filtering ? 'Nothing matches that search.' : 'Words and grammar you mark will appear here after you confirm a page.'}
+        </Text>
       )}
       {items && items.length > 0 && (
-        <ul className="rows">
+        <List hasDividers edge="flush" density="spacious">
           {items.map((item) => (
-            <li key={item.id}>
-              <Link className="row stacked" to={`/wordbank/${item.id}`}>
-                <span className="title" lang="ko">
-                  {item.normalForm}
-                </span>
-                <span className="meta">{item.meanings.join('; ')}</span>
-              </Link>
-            </li>
+            <ListItem
+              key={item.id}
+              href={`/wordbank/${item.id}`}
+              label={
+                <Text type="large">
+                  <span className="korean" lang="ko">
+                    {item.normalForm}
+                  </span>
+                </Text>
+              }
+              description={item.meanings.join('; ')}
+            />
           ))}
-        </ul>
+        </List>
       )}
-    </>
+    </VStack>
   );
 }
 
@@ -70,6 +86,7 @@ export function ItemScreen() {
   const [item, setItem] = useState<ItemDetail | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -78,30 +95,48 @@ export function ItemScreen() {
 
   async function remove() {
     setError(null);
+    setDeleting(true);
     try {
       await api.deleteItem(itemId);
       navigate('/wordbank', { replace: true });
     } catch (e) {
+      setConfirming(false);
+      setDeleting(false);
       setError(messageOf(e));
     }
   }
 
-  if (!item) return error ? <p className="error">{error}</p> : <p className="note">Loading…</p>;
+  if (!item) {
+    return error ? (
+      <VStack gap={3} hAlign="start">
+        <ErrorNote message={error} />
+        <Link href="/wordbank" isStandalone>
+          Back to the word bank
+        </Link>
+      </VStack>
+    ) : (
+      <Skeleton height={160} />
+    );
+  }
 
   const cards = item.senses.length;
   return (
-    <>
-      <p>
-        <Link to="/wordbank">Word bank</Link>
-      </p>
-      <h1 className="korean" lang="ko">
-        {item.normalForm}
-      </h1>
-      <p className="lede">{item.kind === 'word' ? 'Word' : 'Grammar'}</p>
+    <VStack gap={5}>
+      <VStack gap={2} hAlign="start">
+        <Link href="/wordbank" isStandalone>
+          Word bank
+        </Link>
+        <Heading level={1}>
+          <span className="korean" lang="ko">
+            {item.normalForm}
+          </span>
+        </Heading>
+        <Text type="supporting">{item.kind === 'word' ? 'Word' : 'Grammar'}</Text>
+      </VStack>
 
       {item.senses.map((sense, index) => (
-        <section key={sense.id} className="sense">
-          {item.senses.length > 1 && <h2>Meaning {index + 1}</h2>}
+        <VStack key={sense.id} gap={4}>
+          {item.senses.length > 1 && <Heading level={2}>Meaning {index + 1}</Heading>}
           {editing === sense.id ? (
             <EditSense
               sense={sense}
@@ -117,70 +152,71 @@ export function ItemScreen() {
               }}
             />
           ) : (
-            <>
-              <p className="result-meaning">{sense.meaning}</p>
-              {sense.notes && <p className="result-notes">{sense.notes}</p>}
-              {sense.example && (
-                <p className="card-example">
-                  <span className="korean" lang="ko">
-                    {sense.example}
-                  </span>
-                  {sense.exampleTranslation && <span className="translation">{sense.exampleTranslation}</span>}
-                </p>
+            <VStack gap={2} hAlign="start">
+              <Text type="large" weight="medium" as="p">
+                {sense.meaning}
+              </Text>
+              {sense.notes && (
+                <Text color="secondary" as="p">
+                  {sense.notes}
+                </Text>
               )}
-              <button type="button" className="quiet-button" onClick={() => setEditing(sense.id)}>
-                Edit meaning
-              </button>
-            </>
+              {sense.example && (
+                <VStack gap={0.5}>
+                  <Text as="p">
+                    <span className="korean" lang="ko">
+                      {sense.example}
+                    </span>
+                  </Text>
+                  {sense.exampleTranslation && (
+                    <Text color="secondary" as="p">
+                      {sense.exampleTranslation}
+                    </Text>
+                  )}
+                </VStack>
+              )}
+              <Button label="Edit meaning" variant="ghost" size="sm" onClick={() => setEditing(sense.id)} />
+            </VStack>
           )}
-          <h2>Where you met it</h2>
-          <ul className="sightings">
+          <VStack gap={2}>
+            <Heading level={3}>Where you met it</Heading>
             {sense.sightings.map((sighting) => (
-              <li key={sighting.id}>
-                <p className="korean" lang="ko">
-                  {sighting.sentence}
-                </p>
-                {sighting.sentenceTranslation && <p className="translation">{sighting.sentenceTranslation}</p>}
-                <p className="note">
-                  <Link to={`/pages/${sighting.pageId}`}>
-                    {sighting.bookTitle}, page {sighting.pageNumber}
-                  </Link>
-                </p>
-              </li>
+              <VStack key={sighting.id} gap={0.5} hAlign="start">
+                <Text as="p">
+                  <span className="korean" lang="ko">
+                    {sighting.sentence}
+                  </span>
+                </Text>
+                {sighting.sentenceTranslation && (
+                  <Text color="secondary" as="p">
+                    {sighting.sentenceTranslation}
+                  </Text>
+                )}
+                <Link href={`/pages/${sighting.pageId}`}>
+                  {sighting.bookTitle}, page {sighting.pageNumber}
+                </Link>
+              </VStack>
             ))}
-          </ul>
-        </section>
+          </VStack>
+        </VStack>
       ))}
 
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-
-      <section className="danger-zone">
-        {confirming ? (
-          <>
-            <p>
-              Delete <span lang="ko">{item.normalForm}</span> with its meanings, the places you met it, and its {cards} card{cards === 1 ? '' : 's'}? This
-              cannot be undone. Your pages and their results stay.
-            </p>
-            <div className="editor">
-              <button type="button" className="button danger" onClick={remove}>
-                Delete {item.normalForm}
-              </button>
-              <button type="button" className="quiet-button" onClick={() => setConfirming(false)}>
-                Keep it
-              </button>
-            </div>
-          </>
-        ) : (
-          <button type="button" className="quiet-button" onClick={() => setConfirming(true)}>
-            Delete from word bank
-          </button>
-        )}
-      </section>
-    </>
+      <ErrorNote message={error} />
+      <Divider />
+      <HStack>
+        <Button label="Delete from word bank" variant="ghost" size="sm" onClick={() => setConfirming(true)} />
+      </HStack>
+      <AlertDialog
+        isOpen={confirming}
+        onOpenChange={setConfirming}
+        title={`Delete ${item.normalForm}?`}
+        description={`This deletes its meanings, the places you met it, and its ${cards} card${cards === 1 ? '' : 's'}. It cannot be undone. Your pages and their results stay.`}
+        actionLabel={`Delete ${item.normalForm}`}
+        cancelLabel="Keep it"
+        isActionLoading={deleting}
+        onAction={() => void remove()}
+      />
+    </VStack>
   );
 }
 
@@ -194,23 +230,17 @@ function EditSense({ sense, onSave, onCancel }: { sense: Sense; onSave: (meaning
   }
 
   return (
-    <form className="add-form" onSubmit={submit}>
-      <label className="field">
-        <span>Meaning</span>
-        <input type="text" value={meaning} onChange={(e) => setMeaning(e.target.value)} autoFocus />
-      </label>
-      <label className="field">
-        <span>Note</span>
-        <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} />
-      </label>
-      <div className="editor">
-        <button type="submit" className="button primary" disabled={!meaning.trim()}>
-          Save
-        </button>
-        <button type="button" className="quiet-button" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
-    </form>
+    <Card>
+      <form onSubmit={submit}>
+        <VStack gap={4}>
+          <TextInput label="Meaning" value={meaning} onChange={setMeaning} hasAutoFocus />
+          <TextInput label="Note" isOptional value={notes} onChange={setNotes} />
+          <HStack gap={2}>
+            <Button label="Save" type="submit" variant="primary" isDisabled={!meaning.trim()} />
+            <Button label="Cancel" variant="ghost" onClick={onCancel} />
+          </HStack>
+        </VStack>
+      </form>
+    </Card>
   );
 }

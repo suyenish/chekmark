@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
-import { type Api, ApiContext, type ItemDetail, type ItemSummary } from '../api';
+import { Route, Routes } from 'react-router';
+import type { Api, ItemDetail, ItemSummary } from '../api';
+import { TestApp } from '../test-app';
 import { Settings } from './Settings';
 import { ItemScreen, WordBank } from './WordBank';
 
@@ -32,15 +33,13 @@ const detail: ItemDetail = {
 
 function renderAt(path: string, api: Partial<Api>) {
   return render(
-    <ApiContext.Provider value={api as Api}>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/wordbank" element={<WordBank />} />
-          <Route path="/wordbank/:itemId" element={<ItemScreen />} />
-          <Route path="/settings" element={<Settings email="reader@example.com" onDeleted={() => {}} />} />
-        </Routes>
-      </MemoryRouter>
-    </ApiContext.Provider>,
+    <TestApp api={api} path={path}>
+      <Routes>
+        <Route path="/wordbank" element={<WordBank />} />
+        <Route path="/wordbank/:itemId" element={<ItemScreen />} />
+        <Route path="/settings" element={<Settings email="reader@example.com" onDeleted={() => {}} />} />
+      </Routes>
+    </TestApp>,
   );
 }
 

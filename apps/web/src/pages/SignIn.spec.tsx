@@ -1,16 +1,14 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
-import { type Api, ApiContext, ApiError } from '../api';
+import { type Api, ApiError } from '../api';
+import { TestApp } from '../test-app';
 import { SignIn } from './SignIn';
 
 function renderSignIn(api: Partial<Api>, path = '/sign-in') {
   return render(
-    <ApiContext.Provider value={api as Api}>
-      <MemoryRouter initialEntries={[path]}>
-        <SignIn onSignedIn={() => {}} />
-      </MemoryRouter>
-    </ApiContext.Provider>,
+    <TestApp api={api} path={path}>
+      <SignIn onSignedIn={() => {}} />
+    </TestApp>,
   );
 }
 
@@ -56,7 +54,8 @@ describe('SignIn', () => {
     });
     renderSignIn({ requestLink });
     await ask();
-    expect(await screen.findByRole('alert')).toHaveTextContent(/Too many sign-in links/);
+    const message = await screen.findByText(/Too many sign-in links/);
+    expect(message.closest('[role="alert"]')).not.toBeNull();
     expect(screen.getByRole('button', { name: 'Email me a sign-in link' })).toBeEnabled();
   });
 
@@ -65,7 +64,8 @@ describe('SignIn', () => {
       throw new ApiError(401, 'invalid');
     });
     renderSignIn({ verify }, '/sign-in?token=old');
-    expect(await screen.findByRole('alert')).toHaveTextContent(/expired or was already used/);
+    const message = await screen.findByText(/expired or was already used/);
+    expect(message.closest('[role="alert"]')).not.toBeNull(); // announced to screen readers
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
   });
 });

@@ -17,8 +17,11 @@ async function signIn(page: Page) {
   await expect(page.getByRole('heading', { name: 'Your books' })).toBeVisible();
 }
 
+/** The four tabs under the wordmark. */
+const tab = (page: Page, name: string) => page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name, exact: true });
+
 async function deleteAccount(page: Page) {
-  await page.getByRole('link', { name: 'Settings' }).click();
+  await tab(page, 'Settings').click();
   await page.getByRole('button', { name: 'Delete account' }).click();
   await page.getByRole('button', { name: 'Delete my account and all my data' }).click();
   await expect(page).toHaveURL(/\/sign-in/);
@@ -34,6 +37,10 @@ async function uploadPage(page: Page, pageNumber: number) {
 }
 
 test('full journey with the fake AI client', async ({ page }) => {
+  const blocked: string[] = [];
+  page.on('console', (message) => {
+    if (/Content Security Policy|Refused to/i.test(message.text())) blocked.push(message.text());
+  });
   await signIn(page);
 
   // Create a book and upload a page.
@@ -46,7 +53,7 @@ test('full journey with the fake AI client', async ({ page }) => {
   const confirm = page.getByRole('button', { name: 'Confirm marks' });
   await expect(confirm).toBeDisabled();
   await page.getByRole('button', { name: /평평/ }).click();
-  await page.getByRole('button', { name: 'Underline' }).click();
+  await page.getByRole('radio', { name: 'Underline' }).click();
   await expect(confirm).toBeEnabled();
   await confirm.click();
 
@@ -62,7 +69,7 @@ test('full journey with the fake AI client', async ({ page }) => {
   await expect(results.nth(3)).toContainText('비록 -지만');
 
   // Review one card as Easy.
-  await page.getByRole('link', { name: 'Review' }).click();
+  await tab(page, 'Review').click();
   await expect(page.getByText('3 left')).toBeVisible();
   await expect(page.getByTestId('front').locator('mark')).toBeVisible();
   await page.getByRole('button', { name: 'Show answer' }).click();
@@ -70,7 +77,7 @@ test('full journey with the fake AI client', async ({ page }) => {
   await expect(page.getByText('2 left')).toBeVisible();
 
   // A second page that repeats the word: the results remember the first page.
-  await page.getByRole('link', { name: 'Books' }).click();
+  await tab(page, 'Books').click();
   await page.getByRole('link', { name: /아몬드/ }).click();
   await uploadPage(page, 40);
   await page.getByRole('button', { name: /평평/ }).click();
@@ -78,6 +85,9 @@ test('full journey with the fake AI client', async ({ page }) => {
   await page.getByRole('button', { name: 'Confirm marks' }).click();
   await expect(page.getByRole('heading', { name: 'Page 40' })).toBeVisible();
   await expect(page.getByRole('article').first()).toContainText('You saw this on page 12');
+
+  // Nothing the page needed was blocked by the security headers.
+  expect(blocked).toEqual([]);
 
   // Leave nothing behind.
   await deleteAccount(page);

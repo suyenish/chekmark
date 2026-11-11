@@ -1,18 +1,26 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router';
+import { Button } from '@astryxdesign/core/Button';
+import { Divider } from '@astryxdesign/core/Divider';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { Spinner } from '@astryxdesign/core/Spinner';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
 import { type DueCard, messageOf, type Rating, useApi } from '../api';
+import { ErrorNote } from '../ui';
 
-const RATINGS: { rating: Rating; label: string }[] = [
-  { rating: 'again', label: 'Again' },
-  { rating: 'hard', label: 'Hard' },
-  { rating: 'easy', label: 'Easy' },
+const RATINGS: { rating: Rating; label: string; variant: 'secondary' | 'primary' }[] = [
+  { rating: 'again', label: 'Again', variant: 'secondary' },
+  { rating: 'hard', label: 'Hard', variant: 'secondary' },
+  { rating: 'easy', label: 'Easy', variant: 'primary' },
 ];
 
 /** The sentence from the reader's own book, with the marked word or pattern highlighted. */
 function Front({ card }: { card: DueCard }) {
   const { sentence, highlight } = card.front;
   return (
-    <p className="card-sentence korean" lang="ko" data-testid="front">
+    <p className="card-sentence" lang="ko" data-testid="front">
       {highlight ? (
         <>
           {sentence.slice(0, highlight.start)}
@@ -56,81 +64,101 @@ export function Review() {
     }
   }
 
-  if (error && !cards) return <p className="error">{error}</p>;
-  if (!cards) return <p className="note">Loading cards…</p>;
+  if (error && !cards) return <ErrorNote message={error} />;
+  if (!cards) return <Spinner size="lg" label="Loading your cards…" />;
 
   if (cards.length === 0) {
     return (
-      <>
-        <h1>Review</h1>
-        <p className="lede">
+      <VStack gap={3} hAlign="start">
+        <Heading level={1}>Review</Heading>
+        <Text type="large" color="secondary" as="p">
           {done > 0
             ? `All done for now. You reviewed ${done} card${done === 1 ? '' : 's'}.`
             : 'Nothing to review right now. Words and grammar from your pages come here when they are due.'}
-        </p>
-        <p>
-          <Link to="/">Back to your books</Link>
-        </p>
-      </>
+        </Text>
+        <Link href="/" isStandalone>
+          Back to your books
+        </Link>
+      </VStack>
     );
   }
 
   const card = cards[0];
   return (
-    <>
-      <div className="review-head">
-        <h1>Review</h1>
-        <span className="note">{cards.length} left</span>
-      </div>
-      <section className="review-card" aria-live="polite">
-        <span className="mark-label">{card.kind === 'word' ? 'What does the marked word mean here?' : 'What does this grammar mean here?'}</span>
+    <VStack gap={5}>
+      <HStack hAlign="between" vAlign="end">
+        <Heading level={1}>Review</Heading>
+        <Text type="supporting">{cards.length} left</Text>
+      </HStack>
+
+      <VStack gap={3} aria-live="polite">
+        <Text type="supporting" as="p">
+          {card.kind === 'word' ? 'What does the marked word mean here?' : 'What does this grammar mean here?'}
+        </Text>
         <Front card={card} />
         {revealed && (
-          <div className="card-back">
-            <p className="result-form korean" lang="ko">
-              {card.normalForm}
-            </p>
-            <p className="result-meaning">{card.back.meaning}</p>
-            {card.back.notes && <p className="result-notes">{card.back.notes}</p>}
-            {card.back.sentenceTranslation && <p className="translation">{card.back.sentenceTranslation}</p>}
-            {card.back.example && (
-              <p className="card-example">
+          <VStack gap={3}>
+            <Divider />
+            <VStack gap={1}>
+              <Text type="large" weight="bold" as="p">
                 <span className="korean" lang="ko">
-                  {card.back.example}
+                  {card.normalForm}
                 </span>
-                {card.back.exampleTranslation && <span className="translation">{card.back.exampleTranslation}</span>}
-              </p>
+              </Text>
+              <Text type="large" weight="medium" as="p">
+                {card.back.meaning}
+              </Text>
+              {card.back.notes && (
+                <Text color="secondary" as="p">
+                  {card.back.notes}
+                </Text>
+              )}
+            </VStack>
+            {card.back.sentenceTranslation && (
+              <Text color="secondary" as="p">
+                {card.back.sentenceTranslation}
+              </Text>
+            )}
+            {card.back.example && (
+              <VStack gap={0.5}>
+                <Text as="p">
+                  <span className="korean" lang="ko">
+                    {card.back.example}
+                  </span>
+                </Text>
+                {card.back.exampleTranslation && (
+                  <Text color="secondary" as="p">
+                    {card.back.exampleTranslation}
+                  </Text>
+                )}
+              </VStack>
             )}
             {card.source && (
-              <p className="note">
+              <Text type="supporting" as="p">
                 From {card.source.bookTitle}, page {card.source.pageNumber}
-              </p>
+              </Text>
             )}
-          </div>
+          </VStack>
         )}
-      </section>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+      </VStack>
+      <ErrorNote message={error} />
+
       <div className="action-bar">
-        <div>
-          {revealed ? (
-            <div className="ratings">
-              {RATINGS.map(({ rating, label }) => (
-                <button key={rating} type="button" className={`button rating-${rating}`} disabled={busy} onClick={() => rate(rating)}>
-                  {label}
-                </button>
+        {revealed ? (
+          <VStack gap={2}>
+            <Text type="supporting" as="p" justify="center">
+              How well did you know it?
+            </Text>
+            <HStack gap={2}>
+              {RATINGS.map(({ rating, label, variant }) => (
+                <Button key={rating} label={label} variant={variant} size="lg" width="100%" isDisabled={busy} onClick={() => void rate(rating)} />
               ))}
-            </div>
-          ) : (
-            <button type="button" className="button primary wide" onClick={() => setRevealed(true)}>
-              Show answer
-            </button>
-          )}
-        </div>
+            </HStack>
+          </VStack>
+        ) : (
+          <Button label="Show answer" variant="primary" size="lg" width="100%" onClick={() => setRevealed(true)} />
+        )}
       </div>
-    </>
+    </VStack>
   );
 }

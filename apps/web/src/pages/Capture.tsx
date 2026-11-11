@@ -1,7 +1,15 @@
 import { type FormEvent, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
+import { Button } from '@astryxdesign/core/Button';
+import { FileInput } from '@astryxdesign/core/FileInput';
+import { Heading } from '@astryxdesign/core/Heading';
+import { Link } from '@astryxdesign/core/Link';
+import { Text } from '@astryxdesign/core/Text';
+import { TextInput } from '@astryxdesign/core/TextInput';
+import { VStack } from '@astryxdesign/core/VStack';
+import { useNavigate, useParams, useSearchParams } from 'react-router';
 import { messageOf, useApi } from '../api';
 import { preparePhoto } from '../photo';
+import { ErrorNote } from '../ui';
 
 /**
  * Page number and one photo. A plain file input opens the phone's own camera
@@ -13,6 +21,7 @@ export function Capture() {
   const { bookId = '' } = useParams();
   const [params] = useSearchParams();
   const [pageNumber, setPageNumber] = useState(params.get('page') ?? '');
+  const [file, setFile] = useState<File | null>(null);
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -20,13 +29,15 @@ export function Capture() {
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
-  async function choose(file: File | undefined) {
-    if (!file) return;
+  async function choose(chosen: File | null) {
+    setFile(chosen);
     setError(null);
     setPhoto(null);
+    setPreview(null);
+    if (!chosen) return;
     setBusy('preparing');
     try {
-      const prepared = await preparePhoto(file);
+      const prepared = await preparePhoto(chosen);
       setPhoto(prepared);
       setPreview(URL.createObjectURL(prepared));
     } catch (e) {
@@ -36,9 +47,11 @@ export function Capture() {
     }
   }
 
+  const validNumber = /^\d+$/.test(pageNumber) && Number(pageNumber) >= 1;
+
   async function upload(event: FormEvent) {
     event.preventDefault();
-    if (!photo) return;
+    if (!photo || !validNumber) return;
     setError(null);
     setBusy('uploading');
     try {
@@ -50,41 +63,55 @@ export function Capture() {
     }
   }
 
-  const validNumber = /^\d+$/.test(pageNumber) && Number(pageNumber) >= 1;
-
   return (
     <form onSubmit={upload}>
-      <p>
-        <Link to={`/books/${bookId}`}>Back to the book</Link>
-      </p>
-      <h1>Add a page</h1>
-      <label className="field">
-        <span>Page number</span>
-        <input type="number" inputMode="numeric" min={1} required value={pageNumber} onChange={(e) => setPageNumber(e.target.value)} />
-      </label>
+      <VStack gap={5}>
+        <VStack gap={2} hAlign="start">
+          <Link href={`/books/${bookId}`} isStandalone>
+            Back to the book
+          </Link>
+          <Heading level={1}>Add a page</Heading>
+        </VStack>
 
-      <label className="photo-picker">
-        <input type="file" accept="image/*" onChange={(e) => choose(e.target.files?.[0])} />
-        <strong>{photo ? 'Choose a different photo' : 'Take or choose a photo'}</strong>
-        <span className="note" style={{ display: 'block' }}>
-          Hold the phone flat over the page, in good light, with the whole page in view.
-        </span>
-      </label>
-      {busy === 'preparing' && <p className="note">Preparing the photo…</p>}
-      {preview && <img className="preview" src={preview} alt="The page you are about to upload" />}
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+        <TextInput
+          label="Page number"
+          inputMode="numeric"
+          enterKeyHint="next"
+          value={pageNumber}
+          onChange={setPageNumber}
+          width={160}
+          status={pageNumber !== '' && !validNumber ? { type: 'error', message: 'Enter the number printed on the page, 1 or more.' } : undefined}
+        />
 
-      <div className="action-bar">
-        <div>
-          <button type="submit" className="button primary wide" disabled={!photo || !validNumber || busy !== null}>
-            {busy === 'uploading' ? 'Uploading…' : 'Upload page'}
-          </button>
+        <FileInput
+          label="Photo of the page"
+          description="Hold the phone flat over the page, in good light, with the whole page in view."
+          placeholder="Take or choose a photo"
+          mode="dropzone"
+          accept="image/*"
+          value={file}
+          onChange={(files) => void choose(Array.isArray(files) ? (files[0] ?? null) : files)}
+          isLoading={busy === 'preparing'}
+          width="100%"
+        />
+        {preview && <img className="photo-preview" src={preview} alt="The page you are about to upload" />}
+        <ErrorNote message={error} />
+        <Text type="supporting" as="p">
+          The photo is private to you and is deleted after 30 days.
+        </Text>
+
+        <div className="action-bar">
+          <Button
+            label={busy === 'uploading' ? 'Uploading…' : 'Upload page'}
+            type="submit"
+            variant="primary"
+            size="lg"
+            width="100%"
+            isDisabled={!photo || !validNumber}
+            isLoading={busy === 'uploading'}
+          />
         </div>
-      </div>
+      </VStack>
     </form>
   );
 }
