@@ -71,7 +71,21 @@ test('full journey with the fake AI client', async ({ page }) => {
   // Review one card as Easy.
   await tab(page, 'Review').click();
   await expect(page.getByText('3 left')).toBeVisible();
-  await expect(page.getByTestId('front').locator('mark')).toBeVisible();
+  const highlight = page.getByTestId('front').locator('mark');
+  await expect(highlight).toBeVisible();
+  // The highlight covers the whole word (not a half-height stripe), and Korean lines break at spaces only.
+  const look = await highlight.evaluate((mark) => {
+    const sentence = mark.parentElement!;
+    return {
+      height: mark.getClientRects()[0].height,
+      fontSize: parseFloat(getComputedStyle(sentence).fontSize),
+      backgroundImage: getComputedStyle(mark).backgroundImage,
+      wordBreak: getComputedStyle(sentence).wordBreak,
+    };
+  });
+  expect(look.backgroundImage).toBe('none');
+  expect(look.height).toBeGreaterThanOrEqual(look.fontSize);
+  expect(look.wordBreak).toBe('keep-all');
   await page.getByRole('button', { name: 'Show answer' }).click();
   await page.getByRole('button', { name: 'Easy' }).click();
   await expect(page.getByText('2 left')).toBeVisible();
