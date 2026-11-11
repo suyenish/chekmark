@@ -40,7 +40,7 @@ export interface MarkInfo {
   saved: boolean;
 }
 
-export type MarkEdit = { type: ChosenMarkType } | { save: boolean };
+export type MarkEdit = { type: ChosenMarkType } | { save: boolean } | { text: string };
 
 export interface SeenBefore {
   bookId: string;
@@ -132,9 +132,17 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Normally empty. On a developer's own machine with no email service, the
+ * server returns the link (or says the address is not allowed) so the screen can show it.
+ */
+export interface RequestLinkAnswer {
+  dev?: { link: string } | { notAllowed: true };
+}
+
 export interface Api {
   me(): Promise<User | null>;
-  requestLink(email: string): Promise<void>;
+  requestLink(email: string): Promise<RequestLinkAnswer>;
   verify(token: string): Promise<User>;
   logout(): Promise<void>;
   listBooks(): Promise<Book[]>;
@@ -163,6 +171,12 @@ export interface Api {
 
 const BASE = '/api';
 
+/** Sent on `window` when a request finds the session gone, so the app can show the sign-in screen. */
+export const SIGNED_OUT_EVENT = 'chekmark:signed-out';
+
+/** Requests where 401 means "not signed in yet" or "bad link", not "your session ended". */
+const NOT_A_LOST_SESSION = ['/me', '/auth/'];
+
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const init: RequestInit = { method, credentials: 'include' };
   if (body instanceof FormData) init.body = body;
@@ -179,8 +193,13 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
   if (response.status === 204) return undefined as T;
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
+    if (response.status === 401 && !NOT_A_LOST_SESSION.some((prefix) => path.startsWith(prefix))) {
+      window.dispatchEvent(new Event(SIGNED_OUT_EVENT));
+      throw new ApiError(401, 'Your session has ended. Please sign in again.', data);
+    }
     const message = (data as { message?: unknown } | null)?.message;
-    throw new ApiError(response.status, typeof message === 'string' ? message : 'Something went wrong. Please try again.', data);
+    const fallback = response.status >= 502 ? 'Chekmark is restarting or cannot be reached. Please try again in a moment.' : 'Something went wrong. Please try again.';
+    throw new ApiError(response.status, typeof message === 'string' ? message : fallback, data);
   }
   return data as T;
 }
@@ -194,7 +213,7 @@ export const httpApi: Api = {
       throw error;
     }
   },
-  requestLink: (email) => call('POST', '/auth/request-link', { email }),
+  requestLink: async (email) => (await call<RequestLinkAnswer | null>('POST', '/auth/request-link', { email })) ?? {},
   verify: (token) => call('POST', '/auth/verify', { token }),
   logout: () => call('POST', '/auth/logout'),
   listBooks: () => call('GET', '/books'),

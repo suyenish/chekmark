@@ -16,7 +16,12 @@ type RequestWithUser = Request & { user?: SignedInUser };
 export function readCookie(header: string | undefined, name: string): string | null {
   for (const part of (header ?? '').split(';')) {
     const [key, ...value] = part.trim().split('=');
-    if (key === name) return decodeURIComponent(value.join('='));
+    if (key !== name) continue;
+    try {
+      return decodeURIComponent(value.join('='));
+    } catch {
+      return null; // not a value this app ever set
+    }
   }
   return null;
 }

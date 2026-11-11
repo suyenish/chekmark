@@ -119,6 +119,20 @@ describe('review', () => {
     expect(card.front.highlight).toEqual({ text: '겁먹고', start: 3 });
   });
 
+  it('returns the sentence in the same Unicode form the highlight position was measured in', async () => {
+    const sentence = '그는 겁먹고 도망쳤다.';
+    await seedExplainedPage(prisma, {
+      userId: ownerId,
+      bookId,
+      pageNumber: 1,
+      marks: [{ type: 'underline_save', text: '겁먹고', normalForm: '겁먹다', sentence: sentence.normalize('NFD'), result: { meaning: 'to get scared' } }],
+    });
+    const [card] = (await owner.get('/review/due').expect(200)).body;
+    const { sentence: shown, highlight } = card.front;
+    expect(shown).toBe(sentence); // composed, as the web app will slice it
+    expect(shown.slice(highlight.start, highlight.start + highlight.text.length)).toBe('겁먹고');
+  });
+
   it('keeps showing a card after its page is deleted, using another sighting or the example', async () => {
     const { page } = await seedExplainedPage(prisma, {
       userId: ownerId,

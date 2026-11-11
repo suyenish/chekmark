@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
-import { type Api, ApiContext, type DueCard } from '../api';
+import type { Api, DueCard } from '../api';
+import { TestApp } from '../test-app';
 import { Review } from './Review';
 
 const card = (id: string, overrides: Partial<DueCard> = {}): DueCard => ({
@@ -22,11 +22,9 @@ const card = (id: string, overrides: Partial<DueCard> = {}): DueCard => ({
 
 function renderReview(api: Partial<Api>) {
   return render(
-    <ApiContext.Provider value={api as Api}>
-      <MemoryRouter>
-        <Review />
-      </MemoryRouter>
-    </ApiContext.Provider>,
+    <TestApp api={api}>
+      <Review />
+    </TestApp>,
   );
 }
 

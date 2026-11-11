@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { SameOriginGuard } from './accounts/same-origin.guard.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -15,6 +17,6 @@ import { PrismaModule } from './prisma/prisma.module.js';
 @Module({
   imports: [ConfigModule, PrismaModule, PhotosModule, JobsModule, AccountsModule, LibraryModule, MarksModule, WordbankModule, ReviewModule, HealthModule],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [AppService, { provide: APP_GUARD, useClass: SameOriginGuard }],
 })
 export class AppModule {}

@@ -5,12 +5,14 @@ import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { LogMailer, MAILER, SmtpMailer } from './mailer.js';
 import { SessionGuard } from './session.guard.js';
+import { SignInLimiter } from './sign-in-limiter.js';
 import { UsageService } from './usage.service.js';
 
 @Module({
   controllers: [AuthController],
   providers: [
     AuthService,
+    SignInLimiter,
     AccountService,
     SessionGuard,
     UsageService,

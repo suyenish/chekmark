@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Type check, lint, unit and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+        env:
+          # The runner already has Node 24; do not download a second copy.
+          npm_config_use_node_version: ''
+      - name: API type check, lint and build
+        working-directory: apps/api
+        run: |
+          pnpm exec tsc --noEmit -p tsconfig.json
+          pnpm lint
+          pnpm build
+      - name: API unit tests
+        working-directory: apps/api
+        run: pnpm test
+      - name: API integration tests (real PostgreSQL, Redis, storage and mail in Docker)
+        working-directory: apps/api
+        run: pnpm test:int
+      - name: Web type check, lint, tests and build
+        working-directory: apps/web
+        run: |
+          pnpm exec tsc -p tsconfig.json
+          pnpm lint
+          pnpm test
+          pnpm build
+
+  e2e:
+    name: End-to-end journey in containers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+        env:
+          npm_config_use_node_version: ''
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Start the whole app with the fake AI
+        run: docker compose --profile app up -d --build
+        env:
+          AI_PROVIDER: fake
+      - run: pnpm e2e
+      - name: Show container logs if something failed
+        if: failure()
+        run: docker compose --profile app logs --no-color --tail 200
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results

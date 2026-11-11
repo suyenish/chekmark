@@ -1,6 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router';
-import { messageOf, type PageInfo, type PageStatus, useApi } from '../api';
+import { Button } from '@astryxdesign/core/Button';
+import { Heading } from '@astryxdesign/core/Heading';
+import { HStack } from '@astryxdesign/core/HStack';
+import { Link } from '@astryxdesign/core/Link';
+import { Spinner } from '@astryxdesign/core/Spinner';
+import { Text } from '@astryxdesign/core/Text';
+import { VStack } from '@astryxdesign/core/VStack';
+import { ApiError, messageOf, type PageInfo, type PageStatus, useApi } from '../api';
+import { ErrorNote } from '../ui';
 import { MarkCheck } from './MarkCheck';
 import { Results } from './Results';
 
@@ -11,11 +18,15 @@ const WORKING: PageStatus[] = ['UPLOADED', 'DETECTING', 'EXPLAINING'];
 /** After a failed request, wait longer each time, up to 30 seconds. */
 const MAX_RETRY_MS = 30_000;
 
+/** Worth asking again: the phone lost signal (0) or the server is restarting (5xx). Not: the page is gone, or the session ended. */
+const isTemporary = (error: unknown) => !(error instanceof ApiError) || error.status === 0 || error.status >= 500;
+
 /** One page from upload to finish: waiting, Mark check, explaining, done or failed. */
 export function PageScreen({ pageId, pollMs = POLL_MS }: { pageId: string; pollMs?: number }) {
   const api = useApi();
   const [page, setPage] = useState<PageInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -32,6 +43,11 @@ export function PageScreen({ pageId, pollMs = POLL_MS }: { pageId: string; pollM
         if (WORKING.includes(next.status)) timer = setTimeout(load, pollMs);
       } catch (e) {
         if (stopped) return;
+        if (!isTemporary(e)) {
+          setMissing(e instanceof ApiError && e.status === 404);
+          setError(messageOf(e));
+          return; // asking again would not help
+        }
         // A phone can lose signal for a moment, or the server can be restarting: say so and keep trying.
         failures++;
         setError(messageOf(e));
@@ -59,64 +75,69 @@ export function PageScreen({ pageId, pollMs = POLL_MS }: { pageId: string; pollM
     }
   }
 
-  if (!page) return error ? <p className="error">{error}</p> : <p className="note">Loading…</p>;
+  if (missing) {
+    return (
+      <VStack gap={3} hAlign="start">
+        <Heading level={1}>Page not found</Heading>
+        <Text type="large" color="secondary" as="p">
+          This page does not exist, or it was deleted with its book.
+        </Text>
+        <Link href="/" isStandalone>
+          Back to your books
+        </Link>
+      </VStack>
+    );
+  }
+  if (!page) return error ? <ErrorNote message={error} hint="Still trying…" /> : <Spinner size="lg" aria-label="Loading the page" />;
 
   const title = page.pageNumber ? `Page ${page.pageNumber}` : 'This page';
   const back = (
-    <p>
-      <Link to={`/books/${page.bookId}`}>Back to the book</Link>
-    </p>
+    <Link href={`/books/${page.bookId}`} isStandalone>
+      Back to the book
+    </Link>
+  );
+
+  const waiting = (message: string) => (
+    <VStack gap={4} paddingBlock={6} aria-live="polite">
+      <Heading level={1}>{title}</Heading>
+      <Text type="large" color="secondary" as="p">
+        {message}
+      </Text>
+      <div className="drawn-line" aria-hidden="true" />
+      <Text type="supporting" as="p">
+        You can leave this screen. The page keeps going and will be waiting in your book.
+      </Text>
+      <ErrorNote message={error} hint="Still trying…" />
+    </VStack>
   );
 
   switch (page.status) {
     case 'UPLOADED':
     case 'DETECTING':
-      return (
-        <div className="waiting" aria-live="polite">
-          <h1>{title}</h1>
-          <p className="lede">Reading your pencil marks. This usually takes about 15 seconds.</p>
-          <div className="drawn-line" aria-hidden="true" />
-          {error && <p className="error">{error} Still trying…</p>}
-        </div>
-      );
+      return waiting('Reading your pencil marks. This usually takes about 15 seconds.');
     case 'AWAITING_CHECK':
       return <MarkCheck page={page} onConfirmed={setPage} />;
     case 'EXPLAINING':
-      return (
-        <div className="waiting" aria-live="polite">
-          <h1>{title}</h1>
-          <p className="lede">Writing explanations for your marks. This usually takes about 20 seconds.</p>
-          <div className="drawn-line" aria-hidden="true" />
-          {error && <p className="error">{error} Still trying…</p>}
-        </div>
-      );
+      return waiting('Writing explanations for your marks. This usually takes about 20 seconds.');
     case 'DONE':
       return <Results page={page} onPhotoDeleted={() => setPage({ ...page, hasPhoto: false })} />;
     case 'FAILED':
       return (
-        <>
-          <h1>{page.photoUnusable ? 'This photo could not be read' : `${title} did not finish`}</h1>
-          <p className="lede">{page.failureReason}</p>
-          {error && (
-            <p className="error" role="alert">
-              {error}
-            </p>
-          )}
-          {page.photoUnusable ? (
-            <p>
-              <Link className="button primary" to={`/books/${page.bookId}/capture?page=${page.pageNumber ?? ''}`}>
-                Take a new photo
-              </Link>
-            </p>
-          ) : (
-            <p>
-              <button type="button" className="button primary" disabled={busy} onClick={retry}>
-                Retry
-              </button>
-            </p>
-          )}
-          {back}
-        </>
+        <VStack gap={4} hAlign="start">
+          <Heading level={1}>{page.photoUnusable ? 'This photo could not be read' : `${title} did not finish`}</Heading>
+          <Text type="large" color="secondary" as="p">
+            {page.failureReason}
+          </Text>
+          <ErrorNote message={error} />
+          <HStack gap={3} vAlign="center">
+            {page.photoUnusable ? (
+              <Button label="Take a new photo" variant="primary" size="lg" href={`/books/${page.bookId}/capture?page=${page.pageNumber ?? ''}`} />
+            ) : (
+              <Button label="Retry" variant="primary" size="lg" isLoading={busy} onClick={() => void retry()} />
+            )}
+            {back}
+          </HStack>
+        </VStack>
       );
   }
 }

@@ -1,6 +1,8 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
+import { deleteExpiredSignIns } from '../accounts/sign-in-cleanup.js';
+import { UsageService } from '../accounts/usage.service.js';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
 import { PHOTO_STORE, type PhotoStore } from '../photos/photo-store.js';
 import { deleteExpiredPhotos } from '../photos/photo-retention.js';
@@ -31,6 +33,7 @@ export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationS
     private readonly prisma: PrismaService,
     @Inject(PAGE_QUEUE) private readonly pageQueue: PageQueue,
     @Inject(PHOTO_STORE) private readonly photos: PhotoStore,
+    private readonly usage: UsageService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -45,11 +48,14 @@ export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationS
       MAINTENANCE_QUEUE,
       async (job) => {
         if (job.name === STUCK_PAGE_CHECK) {
-          const count = await requeueStuckPages(this.prisma, this.pageQueue, new Date());
+          const count = await requeueStuckPages(this.prisma, this.pageQueue, new Date(), this.usage);
           if (count > 0) this.logger.log(`Re-queued ${count} stuck page(s)`);
         } else if (job.name === EXPIRED_PHOTO_CHECK) {
           const count = await deleteExpiredPhotos(this.prisma, this.photos, new Date());
           if (count > 0) this.logger.log(`Deleted ${count} photo(s) older than 30 days`);
+          // The same daily run tidies sign-in data that can no longer be used.
+          const removed = await deleteExpiredSignIns(this.prisma, new Date());
+          if (removed.sessions + removed.links > 0) this.logger.log(`Removed ${removed.sessions} expired session(s) and ${removed.links} old sign-in link(s)`);
         }
       },
       { connection: this.connection },

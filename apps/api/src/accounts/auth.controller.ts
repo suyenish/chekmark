@@ -27,10 +27,18 @@ export class AuthController {
     return { httpOnly: true, sameSite: 'lax', secure: this.config.nodeEnv === 'production', path: '/' };
   }
 
+  /**
+   * Always 202 with an empty answer, so nobody learns which addresses can sign
+   * in. The one exception is a developer's own machine with no email service
+   * (NODE_ENV=development and no SMTP_URL): there the link could only be read
+   * from the server log, so it is returned for the sign-in screen to show.
+   */
   @Post('auth/request-link')
   @HttpCode(202)
-  async requestLink(@Body() body: unknown): Promise<void> {
-    await this.auth.requestLink(parse(requestLinkBody, body).email);
+  async requestLink(@Body() body: unknown): Promise<{ dev?: { link: string } | { notAllowed: true } }> {
+    const outcome = await this.auth.requestLink(parse(requestLinkBody, body).email);
+    const showOnScreen = this.config.nodeEnv === 'development' && this.config.smtpUrl === null;
+    return showOnScreen ? { dev: outcome } : {};
   }
 
   @Post('auth/verify')

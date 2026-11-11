@@ -6,7 +6,7 @@
       "runtimeExecutable": "bash",
       "runtimeArgs": [
         "-c",
-        "set -a && . ./.env && set +a && export ALLOWED_EMAILS=\"${ALLOWED_EMAILS:-check@example.com}\" && cd apps/api && corepack pnpm start:dev"
+        "set -a && . ./.env && set +a && export SIGN_UP=\"${SIGN_UP:-open}\" && cd apps/api && corepack pnpm start:dev"
       ],
       "port": 3000
     },

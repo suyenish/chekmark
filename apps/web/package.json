@@ -9,16 +9,21 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "oxlint src/"
+    "lint": "oxlint src/ --ignore-pattern 'src/themes/**/chekmark*.d.ts' --ignore-pattern 'src/themes/**/chekmark.js' --ignore-pattern src/astryx-themes.ts",
+    "theme": "astryx theme build src/themes/chekmark/chekmarkTheme.ts"
   },
   "dependencies": {
+    "@astryxdesign/core": "^0.7.12",
+    "@astryxdesign/theme-neutral": "^0.7.12",
     "@fontsource/gowun-batang": "^5.3.0",
     "@fontsource/ibm-plex-sans-kr": "^5.3.0",
+    "@stylexjs/stylex": "^0.19.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router": "^8.5.1"
   },
   "devDependencies": {
+    "@astryxdesign/cli": "^0.7.12",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.8",

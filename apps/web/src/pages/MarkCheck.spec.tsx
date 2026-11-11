@@ -1,7 +1,7 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router';
-import { type Api, ApiContext, type MarkInfo, type PageInfo } from '../api';
+import { type Api, ApiError, type MarkInfo, type PageInfo } from '../api';
+import { TestApp } from '../test-app';
 import { PageScreen } from './PageScreen';
 
 const basePage: PageInfo = {
@@ -34,9 +34,10 @@ function fakeApi(page: PageInfo, marks: MarkInfo[] = []) {
     getPage: vi.fn(async () => page),
     photoUrl: (id: string) => `/api/pages/${id}/photo`,
     listMarks: vi.fn(async () => current),
-    editMark: vi.fn(async (id: string, edit: { type?: MarkInfo['type']; save?: boolean }) => {
+    editMark: vi.fn(async (id: string, edit: { type?: MarkInfo['type']; save?: boolean; text?: string }) => {
       current = current.map((m) => {
         if (m.id !== id) return m;
+        if (edit.text !== undefined) return { ...m, text: edit.text, normalForm: null, source: 'corrected' };
         const type = edit.save === undefined ? edit.type! : edit.save ? 'underline_save' : 'underline_translate';
         return { ...m, type, saved: type !== 'underline_translate', source: 'corrected' };
       });
@@ -58,13 +59,14 @@ function fakeApi(page: PageInfo, marks: MarkInfo[] = []) {
 
 function renderPage(api: ReturnType<typeof fakeApi>, pollMs?: number) {
   return render(
-    <ApiContext.Provider value={api as unknown as Api}>
-      <MemoryRouter>
-        <PageScreen pageId="page-1" pollMs={pollMs} />
-      </MemoryRouter>
-    </ApiContext.Provider>,
+    <TestApp api={api as unknown as Api}>
+      <PageScreen pageId="page-1" pollMs={pollMs} />
+    </TestApp>,
   );
 }
+
+/** Astryx buttons stay focusable when disabled, so they say so with aria-disabled. */
+const isOff = (button: HTMLElement) => button.getAttribute('aria-disabled') === 'true' || (button as HTMLButtonElement).disabled;
 
 describe('Mark check', () => {
   it('lists the marks in page order', async () => {
@@ -78,13 +80,15 @@ describe('Mark check', () => {
     const api = fakeApi(basePage, [mark('m1', 'curly', '비록', 0), mark('m2', 'unclear', '평평', 1)]);
     renderPage(api);
     const confirm = await screen.findByRole('button', { name: 'Confirm marks' });
-    expect(confirm).toBeDisabled();
+    expect(isOff(confirm)).toBe(true);
     expect(screen.getByText(/1 unclear mark/)).toBeInTheDocument();
+    await user.click(confirm);
+    expect(api.confirm).not.toHaveBeenCalled(); // a disabled Confirm does nothing
 
     await user.click(screen.getByRole('button', { name: /평평/ }));
-    await user.click(screen.getByRole('button', { name: 'Underline' }));
-    await waitFor(() => expect(confirm).toBeEnabled());
-    await user.click(confirm);
+    await user.click(screen.getByRole('radio', { name: 'Underline' }));
+    await waitFor(() => expect(isOff(screen.getByRole('button', { name: 'Confirm marks' }))).toBe(false));
+    await user.click(screen.getByRole('button', { name: 'Confirm marks' }));
     expect(api.confirm).toHaveBeenCalledWith('page-1');
   });
 
@@ -93,7 +97,7 @@ describe('Mark check', () => {
     const api = fakeApi(basePage, [mark('m1', 'underline_save', '비록', 0)]);
     renderPage(api);
     await user.click(await screen.findByRole('button', { name: /비록/ }));
-    await user.click(screen.getByRole('button', { name: 'Curly line' }));
+    await user.click(screen.getByRole('radio', { name: 'Curly line' }));
     expect(api.editMark).toHaveBeenCalledWith('m1', { type: 'curly' });
     expect(await screen.findByText('Grammar')).toBeInTheDocument();
   });
@@ -109,13 +113,13 @@ describe('Mark check', () => {
     renderPage(api);
     const switches = await screen.findAllByRole('switch', { name: /save to word bank/i });
     expect(switches).toHaveLength(2);
-    expect(switches.map((s) => s.getAttribute('aria-checked'))).toEqual(['true', 'false']);
+    expect(switches.map((s) => (s as HTMLInputElement).checked)).toEqual([true, false]);
     const curly = screen.getAllByRole('listitem')[2];
     expect(within(curly).queryByRole('switch')).toBeNull();
 
     await user.click(switches[1]);
     expect(api.editMark).toHaveBeenCalledWith('m2', { save: true });
-    await waitFor(() => expect(screen.getAllByRole('switch', { name: /save to word bank/i })[1]).toHaveAttribute('aria-checked', 'true'));
+    await waitFor(() => expect(screen.getAllByRole('switch', { name: /save to word bank/i })[1]).toBeChecked());
   });
 
   it('removes a mark', async () => {
@@ -126,7 +130,27 @@ describe('Mark check', () => {
     await user.click(screen.getByRole('button', { name: 'Remove mark' }));
     expect(api.deleteMark).toHaveBeenCalledWith('m2');
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
-    expect(screen.getByRole('button', { name: 'Confirm marks' })).toBeEnabled();
+    expect(isOff(screen.getByRole('button', { name: 'Confirm marks' }))).toBe(false);
+  });
+
+  it('fixes the text of a misread mark', async () => {
+    const user = userEvent.setup();
+    const api = fakeApi(basePage, [mark('m1', 'underline_save', '평평', 0)]);
+    renderPage(api);
+    await user.click(await screen.findByRole('button', { name: /평평/ }));
+    const field = screen.getByLabelText('Text of this mark');
+    await user.clear(field);
+    await user.type(field, '펑펑');
+    await user.click(screen.getByRole('button', { name: 'Save text' }));
+    expect(api.editMark).toHaveBeenCalledWith('m1', { text: '펑펑' });
+    expect(await screen.findByTestId('mark-text')).toHaveTextContent('펑펑');
+  });
+
+  it('offers a new photo when no marks were found', async () => {
+    renderPage(fakeApi(basePage, []));
+    expect(await screen.findByText(/No marks were found/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Take a new photo' })).toHaveAttribute('href', '/books/book-1/capture?page=12');
+    expect(isOff(screen.getByRole('button', { name: 'Confirm marks' }))).toBe(false); // finishing an unmarked page is allowed
   });
 
   it('adds a typed mark with the chosen type', async () => {
@@ -192,5 +216,15 @@ describe('page status', () => {
     expect(screen.getByText(/Reading your pencil marks/)).toBeInTheDocument(); // still waiting, not a dead end
     expect(await screen.findByRole('button', { name: 'Confirm marks' })).toBeInTheDocument();
     expect(screen.queryByText(/Could not reach Chekmark/)).toBeNull();
+  });
+
+  it('says a page was not found, instead of waiting for it forever', async () => {
+    const api = fakeApi(basePage);
+    api.getPage.mockRejectedValue(new ApiError(404, 'Page not found'));
+    renderPage(api, 10);
+    expect(await screen.findByRole('heading', { name: 'Page not found' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Back to your books' })).toHaveAttribute('href', '/');
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(api.getPage).toHaveBeenCalledTimes(1);
   });
 });

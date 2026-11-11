@@ -1,0 +1,10 @@
+{
+  "name": "Chekmark",
+  "short_name": "책마크",
+  "description": "Mark a page of your Korean book with a pencil, take a photo, and study what you marked.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#edefea",
+  "theme_color": "#edefea",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

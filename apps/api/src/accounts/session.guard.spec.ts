@@ -16,4 +16,8 @@ describe('readCookie', () => {
   it('returns null without a Cookie header', () => {
     expect(readCookie(undefined, 'session')).toBeNull();
   });
+
+  it('treats a cookie that cannot be decoded as no cookie, instead of crashing', () => {
+    expect(readCookie('session=%E0%A4%A', 'session')).toBeNull();
+  });
 });

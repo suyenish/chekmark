@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { MAILER, type Mailer } from './mailer.js';
+import { SignInLimiter } from './sign-in-limiter.js';
 
 export const LINK_LIFETIME_MS = 15 * 60 * 1000;
 export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
@@ -18,21 +19,42 @@ const newSecret = () => randomBytes(32).toString('base64url');
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     @Inject(MAILER) private readonly mailer: Mailer,
+    private readonly limiter: SignInLimiter,
   ) {}
 
-  /** Sends a link only to allowed addresses, but the caller cannot tell which happened. */
-  async requestLink(email: string): Promise<void> {
-    if (!this.config.allowedEmails.includes(email)) return;
-    const token = newSecret();
+  /** With SIGN_UP=open anyone may sign in; otherwise only the addresses in ALLOWED_EMAILS. */
+  private mayHaveLink(email: string): boolean {
+    return this.config.signUp === 'open' || this.config.allowedEmails.includes(email);
+  }
+
+  /**
+   * Sends a one-time link if the address may sign in. The outcome is for the
+   * server only: the public answer is the same either way, so nobody can find
+   * out who has an account (see AuthController for the development exception).
+   */
+  async requestLink(email: string): Promise<{ link: string } | { notAllowed: true }> {
     const createdAt = new Date();
+    await this.limiter.count(email, createdAt);
+    if (!this.mayHaveLink(email)) return { notAllowed: true };
+    const token = newSecret();
     await this.prisma.loginToken.create({
       data: { email, tokenHash: hashSecret(token), createdAt, expiresAt: new Date(createdAt.getTime() + LINK_LIFETIME_MS) },
     });
-    await this.mailer.sendSignInLink(email, `${this.config.appUrl}/sign-in?token=${encodeURIComponent(token)}`);
+    const link = `${this.config.appUrl}/sign-in?token=${encodeURIComponent(token)}`;
+    try {
+      await this.mailer.sendSignInLink(email, link);
+    } catch (error) {
+      // The details stay in the log. The reader is told plainly, so they do not wait for an email that is not coming.
+      this.logger.error(`Could not send a sign-in email: ${String(error)}`);
+      throw new ServiceUnavailableException('We could not send the sign-in email right now. Please try again in a few minutes.');
+    }
+    return { link };
   }
 
   /** Uses up the token and starts a session. Returns the session ID for the cookie. */

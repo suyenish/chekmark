@@ -1,12 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
-// Fonts ship with the app: no request to a font service, and they work offline.
-import '@fontsource/gowun-batang/400.css';
-import '@fontsource/gowun-batang/700.css';
-import '@fontsource/ibm-plex-sans-kr/400.css';
-import '@fontsource/ibm-plex-sans-kr/500.css';
-import '@fontsource/ibm-plex-sans-kr/600.css';
+// Astryx: its reset and component styles first. The Chekmark theme and its bundled fonts are loaded by astryx-themes.
+import '@astryxdesign/core/reset.css';
+import '@astryxdesign/core/astryx.css';
 import './styles.css';
 
 createRoot(document.getElementById('root')!).render(
