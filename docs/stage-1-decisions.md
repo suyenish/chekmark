@@ -162,3 +162,19 @@ Not fixed in Stage 1. Each is small; decide before Stage 2.
 - AI_MODEL has a code default (claude-haiku-5-5) against the plan's "no model default"; make it required in production.
 - the empty Mark check has no retake link (spec 10).
 - two pages explained at the same time can create duplicate senses for the same new word (spec accepts duplicates).
+
+## Publish-readiness pass (2026-11-10 to 2026-11-12)
+
+Decisions made while fixing sign-in, auditing, redesigning on Astryx and preparing to publish.
+
+- In development with no email service, the sign-in screen shows the link itself (and says when an address is not allowed); production and any setup with SMTP_URL always answer an empty 202 — the link was only in the server log before, which looked like a broken sign-in — cost if wrong: none, it cannot happen in production.
+- SIGN_UP=allowlist (default) or open; production refuses an allowlist with nobody on it; local Docker and the dev launcher default to open — cost if wrong: one setting.
+- Sign-in links are limited to 5 per address per 15 minutes and 300 an hour app-wide, counted in Redis with the address hashed; if Redis is down the link is still sent — closes the rate limit deferred in Task 4 — cost if wrong: a locked-out reader waits 15 minutes.
+- A failed email send answers 503 with a plain message instead of pretending it was sent; this tells an allowed address apart from a stranger only while the email service is down — cost if wrong: a small leak of who is allowed during an outage.
+- ai_calls keep their rows when an account is deleted (user_id set to null), so the monthly budget cannot be lowered by deleting an account — reverses the Task 3 and Task 11 rulings, as the final review advised — cost if wrong: none.
+- Retry queues a job with its own ID; pages stuck in DETECTING or EXPLAINING for over an hour are failed instead of re-queued forever; expired sessions and day-old sign-in links are removed daily — cost if wrong: a page that would have finished after an hour needs a Retry.
+- Requests that change something are refused when the browser says they come from another site (Origin must equal APP_URL) — APP_URL must therefore match the public address exactly — cost if wrong: a wrong APP_URL blocks every action, which the deployment guide calls out.
+- The web app is rebuilt on Astryx 0.7 (beta) with a local theme extending neutral; the app keeps its own CSS only for pencil marks, the card highlight and the waiting line; dark mode follows the device — cost if wrong: the JavaScript bundle is about 310 kB compressed (was 87 kB), and Astryx is pre-1.0, so upgrades may need `astryx upgrade`.
+- The interface font ships only its Latin files and the book serif carries Korean; fonts are declared in the theme's fonts stylesheet — halves the compressed CSS — cost if wrong: Korean in interface text falls back to the system font.
+- nginx sends a Content-Security-Policy (own origin only; inline styles and embedded fonts allowed because the design system and build need them), no-sniff, referrer and HSTS headers, and compresses text; the end-to-end test fails if the policy blocks anything — cost if wrong: a new outside resource must be added to the policy.
+- Still deferred: usage given back to the wrong day across UTC midnight; two pages explained at once can duplicate a new word's sense; AI_MODEL has a default in code; confirm does not check the budget.
