@@ -29,6 +29,8 @@ const envSchema = z.object({
   APP_URL: text(z.url().default('http://localhost:5173').transform((url) => url.replace(/\/+$/, ''))),
   /** For example smtps://user:password@smtp.example.com:465. Without it, links are only logged. */
   SMTP_URL: text(z.string().regex(/^smtps?:\/\//, 'must be an smtp:// or smtps:// address').optional()),
+  /** Resend's web API key (re_...). Use it instead of SMTP_URL where the host blocks SMTP ports. */
+  RESEND_API_KEY: text(z.string().optional()),
   MAIL_FROM: text(z.string().default('Chekmark <no-reply@localhost>')),
   /** S3-compatible photo storage. Leave S3_ENDPOINT empty for Amazon S3 itself. */
   S3_ENDPOINT: text(z.url({ protocol: /^https?$/ }).optional()),
@@ -61,8 +63,8 @@ const envSchema = z.object({
   if (env.NODE_ENV === 'production' && !env.ANTHROPIC_API_KEY) {
     ctx.addIssue({ code: 'custom', path: ['ANTHROPIC_API_KEY'], message: 'is required in production, so the worker can read pages' });
   }
-  if (env.NODE_ENV === 'production' && !env.SMTP_URL) {
-    ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'is required in production, so sign-in links reach people' });
+  if (env.NODE_ENV === 'production' && !env.SMTP_URL && !env.RESEND_API_KEY) {
+    ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL or RESEND_API_KEY is required in production, so sign-in links reach people' });
   }
 });
 
@@ -95,6 +97,7 @@ function toConfig(env: z.infer<typeof envSchema>) {
     signUp: env.SIGN_UP,
     appUrl: env.APP_URL,
     smtpUrl: env.SMTP_URL ?? null,
+    resendApiKey: env.RESEND_API_KEY ?? null,
     mailFrom: env.MAIL_FROM,
     s3Endpoint: env.S3_ENDPOINT ?? null,
     s3Region: env.S3_REGION,

@@ -94,3 +94,44 @@ export class SmtpMailer implements Mailer {
     await this.transport.sendMail({ from: this.from, to, subject: `Chekmark: ${subject}`, text });
   }
 }
+
+type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
+
+/**
+ * Sends through Resend's web API over HTTPS. Use it where the host blocks
+ * email-server (SMTP) ports, as Railway does on its Hobby plan.
+ */
+export class ResendMailer implements Mailer {
+  private readonly logger = new Logger('ResendMailer');
+
+  constructor(
+    private readonly apiKey: string,
+    private readonly from: string,
+    private readonly fetchFn: FetchFn = (url, init) => fetch(url, init),
+  ) {}
+
+  onModuleInit(): void {
+    this.logger.log('Sign-in links will be emailed through the Resend API.');
+  }
+
+  async sendSignInLink(email: string, url: string): Promise<void> {
+    await this.send({ to: [email], ...signInEmail(url) });
+  }
+
+  async sendAlert(to: string, subject: string, text: string): Promise<void> {
+    await this.send({ to: [to], subject: `Chekmark: ${subject}`, text });
+  }
+
+  private async send(message: { to: string[]; subject: string; text: string; html?: string }): Promise<void> {
+    const response = await this.fetchFn('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${this.apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: this.from, ...message }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 300);
+      throw new Error(`Resend refused the email (${response.status}): ${detail}`);
+    }
+  }
+}

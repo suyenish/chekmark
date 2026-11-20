@@ -37,7 +37,7 @@ export class AuthController {
   @HttpCode(202)
   async requestLink(@Body() body: unknown): Promise<{ dev?: { link: string } | { notAllowed: true } }> {
     const outcome = await this.auth.requestLink(parse(requestLinkBody, body).email);
-    const showOnScreen = this.config.nodeEnv === 'development' && this.config.smtpUrl === null;
+    const showOnScreen = this.config.nodeEnv === 'development' && this.config.smtpUrl === null && this.config.resendApiKey === null;
     return showOnScreen ? { dev: outcome } : {};
   }
 
