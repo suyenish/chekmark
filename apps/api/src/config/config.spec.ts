@@ -17,6 +17,7 @@ describe('loadConfig', () => {
       signUp: 'allowlist',
       appUrl: 'http://localhost:5173',
       smtpUrl: null,
+      resendApiKey: null,
       mailFrom: 'Chekmark <no-reply@localhost>',
       s3Endpoint: null,
       s3Region: 'us-east-1',
@@ -75,10 +76,16 @@ describe('loadConfig', () => {
   });
 
   it('requires SMTP_URL in production, because a sign-in link that is only logged reaches nobody', () => {
-    expect(() => loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com' })).toThrow(/SMTP_URL/);
+    expect(() => loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com' })).toThrow(/SMTP_URL or RESEND_API_KEY/);
     expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', SMTP_URL: 'smtps://u:p@smtp.example:465', ANTHROPIC_API_KEY: 'k' }).smtpUrl).toBe(
       'smtps://u:p@smtp.example:465',
     );
+  });
+
+  it('accepts RESEND_API_KEY instead of SMTP_URL in production, for hosts that block SMTP', () => {
+    const config = loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', RESEND_API_KEY: 're_x', ANTHROPIC_API_KEY: 'k' });
+    expect(config.resendApiKey).toBe('re_x');
+    expect(config.smtpUrl).toBeNull();
   });
 
   it('reads the photo storage settings', () => {

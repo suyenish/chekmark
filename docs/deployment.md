@@ -12,7 +12,7 @@ How the app runs in production, and the steps to put it online. Stage 1 is a per
 | Migrations | The same image, `npx prisma migrate deploy` | Pre-deploy command of `api` |
 | PostgreSQL, Redis | Railway databases | Railway |
 | Photos | S3-compatible storage | Cloudflare R2 |
-| Sign-in email | SMTP | For example Resend |
+| Sign-in email | Resend API, or SMTP | Railway's Hobby plan blocks SMTP ports |
 | AI | Claude API | Anthropic |
 
 Because the web server forwards `/api` on the same domain, the session cookie is first-party and no CORS setup is needed.
@@ -61,7 +61,7 @@ Set the same variables on both (Railway's shared variables make this easier):
 | `ALLOWED_EMAILS` | your email, and anyone you invite, separated by commas |
 | `OWNER_EMAIL` | your email (gets the budget alert) |
 | `APP_URL` | the web service's public URL, for example `https://chekmark.up.railway.app`. It must match the address in the browser exactly: sign-in links point to it, and requests from any other site are refused |
-| `SMTP_URL` | `smtps://resend:<resend-api-key>@smtp.resend.com:465` |
+| `RESEND_API_KEY` | your Resend API key (`re_...`). Railway's Hobby plan blocks SMTP, so use this instead of `SMTP_URL` there |
 | `MAIL_FROM` | `Chekmark <onboarding@resend.dev>` |
 
 Leave `AI_PROVIDER` unset: the app refuses `fake` in production.
