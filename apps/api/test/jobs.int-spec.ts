@@ -223,6 +223,18 @@ describe('job queue and page status', () => {
       expect(released).toEqual([userId]); // only detection counts as a page
     });
 
+    it('gives usage back to the day the page was counted, not the day detection started', async () => {
+      const longAgo = new Date(now.getTime() - GIVE_UP_AFTER_MS - 1000);
+      const countedTheDayBefore = new Date(longAgo.getTime() - 24 * 60 * 60 * 1000);
+      const detecting = await createPage('DETECTING', longAgo);
+      await prisma.page.update({ where: { id: detecting.id }, data: { usageCountedAt: countedTheDayBefore } });
+      const released: Date[] = [];
+      const usage = { release: async (_user: string, countedOn: Date) => void released.push(countedOn) };
+
+      await requeueStuckPages(prisma, queue, now, usage);
+      expect(released).toEqual([countedTheDayBefore]);
+    });
+
     it('does not requeue recent pages, or AWAITING_CHECK, DONE and FAILED pages', async () => {
       await createPage('UPLOADED', recent);
       await createPage('DETECTING', recent);

@@ -140,6 +140,19 @@ describe('detection job', () => {
     expect(await usage.used(userId, retriedNow)).toBe(0);
   });
 
+  it('gives usage back to the day it was counted, for a stuck page whose detection restarted after midnight', async () => {
+    const page = await createPage('DETECTING');
+    const countedYesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const restartedToday = new Date();
+    await prisma.page.update({ where: { id: page.id }, data: { usageCountedAt: countedYesterday, statusChangedAt: restartedToday } });
+    await usage.reserve(userId, countedYesterday);
+    await usage.reserve(userId, restartedToday); // another page today, which must stay counted
+    fake.queue({ output: result([], false, 'The page is cut off.') });
+    await processor.process(job(page.id));
+    expect(await usage.used(userId, countedYesterday)).toBe(0);
+    expect(await usage.used(userId, restartedToday)).toBe(1);
+  });
+
   it('replaces marks instead of duplicating them when the job runs twice', async () => {
     // A stuck page re-queued while still DETECTING, with marks from an earlier run.
     const page = await createPage('DETECTING');

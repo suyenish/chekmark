@@ -77,13 +77,19 @@ describe('loadConfig', () => {
 
   it('requires SMTP_URL in production, because a sign-in link that is only logged reaches nobody', () => {
     expect(() => loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com' })).toThrow(/SMTP_URL or RESEND_API_KEY/);
-    expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', SMTP_URL: 'smtps://u:p@smtp.example:465', ANTHROPIC_API_KEY: 'k' }).smtpUrl).toBe(
+    expect(loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', SMTP_URL: 'smtps://u:p@smtp.example:465', ANTHROPIC_API_KEY: 'k', AI_MODEL: 'm' }).smtpUrl).toBe(
       'smtps://u:p@smtp.example:465',
     );
   });
 
+  it('requires AI_MODEL in production, so the model always matches the price settings', () => {
+    const production = { DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', RESEND_API_KEY: 're_x', ANTHROPIC_API_KEY: 'k' };
+    expect(() => loadConfig(production)).toThrow(/AI_MODEL/);
+    expect(loadConfig({ ...production, AI_MODEL: 'claude-haiku-5-5' }).aiModel).toBe('claude-haiku-5-5');
+  });
+
   it('accepts RESEND_API_KEY instead of SMTP_URL in production, for hosts that block SMTP', () => {
-    const config = loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', RESEND_API_KEY: 're_x', ANTHROPIC_API_KEY: 'k' });
+    const config = loadConfig({ DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', RESEND_API_KEY: 're_x', ANTHROPIC_API_KEY: 'k', AI_MODEL: 'm' });
     expect(config.resendApiKey).toBe('re_x');
     expect(config.smtpUrl).toBeNull();
   });
@@ -126,7 +132,7 @@ describe('loadConfig', () => {
   });
 
   it('requires ANTHROPIC_API_KEY in production, because the worker cannot read pages without it', () => {
-    const production = { DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', SMTP_URL: 'smtps://u:p@smtp.example:465' };
+    const production = { DATABASE_URL, NODE_ENV: 'production', ALLOWED_EMAILS: 'me@example.com', SMTP_URL: 'smtps://u:p@smtp.example:465', AI_MODEL: 'm' };
     expect(() => loadConfig(production)).toThrow(/ANTHROPIC_API_KEY/);
     expect(loadConfig({ ...production, ANTHROPIC_API_KEY: 'k' }).anthropicApiKey).toBe('k');
   });
@@ -141,7 +147,7 @@ describe('loadConfig', () => {
   it('reads SIGN_UP, and in production refuses an allowlist with nobody on it', () => {
     expect(loadConfig({ DATABASE_URL, SIGN_UP: 'open' }).signUp).toBe('open');
     expect(() => loadConfig({ DATABASE_URL, SIGN_UP: 'everyone' })).toThrow(/SIGN_UP/);
-    const production = { DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465', ANTHROPIC_API_KEY: 'k' };
+    const production = { DATABASE_URL, NODE_ENV: 'production', SMTP_URL: 'smtps://u:p@smtp.example:465', ANTHROPIC_API_KEY: 'k', AI_MODEL: 'm' };
     expect(() => loadConfig(production)).toThrow(/ALLOWED_EMAILS/);
     expect(loadConfig({ ...production, SIGN_UP: 'open' }).signUp).toBe('open');
   });

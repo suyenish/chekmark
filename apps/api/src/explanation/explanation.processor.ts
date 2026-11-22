@@ -82,7 +82,7 @@ export class ExplanationProcessor {
 
       await this.prisma
         .$transaction(async (tx) => {
-          await saveResults(tx, userId, pageId, results);
+          await saveResults(tx, userId, pageId, results, new Map(toExplain.map((mark) => [mark.markId, mark.senseIds])));
           if (!(await movePage(tx, pageId, 'EXPLAINING', 'DONE'))) throw new PageMovedOnError();
         })
         .catch((error: unknown) => {

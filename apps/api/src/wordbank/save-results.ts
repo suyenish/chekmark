@@ -29,8 +29,21 @@ const itemKindOf = (type: string): ItemKind | null => (type === 'underline_save'
  *
  * Marks that already have a sighting or translation are skipped, so running
  * it twice saves nothing twice.
+ *
+ * Two pages of one reader can be explained at the same time. Each saves under
+ * a lock on the reader, and `shownSenseIds` says which senses the model saw for
+ * each mark. A "new" meaning for a word that has since gained a sense the model
+ * did not see (made by the other page moments ago) reuses that sense, so one
+ * word does not get two cards.
  */
-export async function saveResults(tx: Prisma.TransactionClient, userId: string, pageId: string, results: ExplainResult[]): Promise<void> {
+export async function saveResults(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  pageId: string,
+  results: ExplainResult[],
+  shownSenseIds: ReadonlyMap<string, readonly string[]> = new Map(),
+): Promise<void> {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${`wordbank:${userId}`}))::text AS locked`;
   const page = await tx.page.findUniqueOrThrow({ where: { id: pageId }, include: { book: { select: { sourceLanguage: true } } } });
   const marks = await tx.mark.findMany({
     where: { pageId },
@@ -70,8 +83,19 @@ export async function saveResults(tx: Prisma.TransactionClient, userId: string, 
       create: { userId, kind, language: page.book.sourceLanguage, normalForm },
       update: {},
     });
-    const reused = sensesMadeHere.get(item.id);
+    const shown = shownSenseIds.get(mark.id);
+    const reused =
+      sensesMadeHere.get(item.id) ??
+      (shown &&
+        (
+          await tx.sense.findFirst({
+            where: { itemId: item.id, id: { notIn: [...shown] } },
+            orderBy: { createdAt: 'desc' },
+            select: { id: true },
+          })
+        )?.id);
     if (reused) {
+      sensesMadeHere.set(item.id, reused);
       await tx.sighting.create({ data: { ...sighting, senseId: reused } });
       continue;
     }

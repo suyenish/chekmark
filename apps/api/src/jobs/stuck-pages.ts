@@ -36,14 +36,14 @@ export async function requeueStuckPages(
       status: { in: ['UPLOADED', 'DETECTING', 'EXPLAINING'] },
       statusChangedAt: { lt: new Date(now.getTime() - STUCK_AFTER_MS) },
     },
-    select: { id: true, status: true, statusChangedAt: true, book: { select: { userId: true } } },
+    select: { id: true, status: true, statusChangedAt: true, usageCountedAt: true, book: { select: { userId: true } } },
   });
   let requeued = 0;
   for (const page of stuck) {
     const working = page.status === 'DETECTING' || page.status === 'EXPLAINING';
     if (working && now.getTime() - page.statusChangedAt.getTime() > GIVE_UP_AFTER_MS) {
       const failed = await movePage(db, page.id, page.status as 'DETECTING' | 'EXPLAINING', 'FAILED', { failureReason: TOOK_TOO_LONG });
-      if (failed && page.status === 'DETECTING') await usage?.release(page.book.userId, page.statusChangedAt);
+      if (failed && page.status === 'DETECTING') await usage?.release(page.book.userId, page.usageCountedAt ?? page.statusChangedAt);
       continue;
     }
     if (page.status === 'EXPLAINING') await queue.enqueueExplanation(page.id);

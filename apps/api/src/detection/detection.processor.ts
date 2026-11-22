@@ -38,8 +38,9 @@ export class DetectionProcessor {
       return; // already done by an earlier run
     }
     const userId = page.book.userId;
-    // When the page entered UPLOADED (its upload or a retry) is when its usage was counted.
-    const countedOn = page.statusChangedAt;
+    // The day this page was counted (its upload or a retry). Pages from before
+    // usage_counted_at existed fall back to when they entered UPLOADED.
+    const countedOn = page.usageCountedAt ?? page.statusChangedAt;
 
     try {
       const photo = await this.photos.get(page.photoKey);

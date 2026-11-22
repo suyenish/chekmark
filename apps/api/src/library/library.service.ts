@@ -78,7 +78,7 @@ export class LibraryService {
     let page: Page;
     try {
       await this.photos.put(photoKey, jpeg);
-      page = await this.prisma.page.create({ data: { id, bookId, pageNumber, photoKey, createdAt: now, statusChangedAt: now } });
+      page = await this.prisma.page.create({ data: { id, bookId, pageNumber, photoKey, createdAt: now, statusChangedAt: now, usageCountedAt: now } });
     } catch (error) {
       await this.photos.delete(photoKey).catch(() => undefined);
       await this.usage.release(userId, now);

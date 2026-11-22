@@ -112,6 +112,7 @@ describe('books, pages and photos', () => {
 
     const row = await prisma.page.findUniqueOrThrow({ where: { id: response.body.id }, include: { book: true } });
     expect(row.photoKey).toBe(`users/${row.book.userId}/pages/${row.id}.jpg`);
+    expect(row.usageCountedAt).toEqual(row.createdAt); // the day this page counts towards the daily limit
     expect(photos.photos.get(row.photoKey)).toEqual(file);
     expect(queue.detection).toContain(row.id);
 

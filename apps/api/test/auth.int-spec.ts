@@ -243,7 +243,7 @@ describe('sign-in link delivery', () => {
 
   it('never returns the link, or who is allowed, once an email service is set or in production', async () => {
     const withSmtp = await startApp({ NODE_ENV: 'development', ALLOWED_EMAILS: ALLOWED, SMTP_URL: 'smtp://localhost:2525' });
-    const production = await startApp({ NODE_ENV: 'production', ALLOWED_EMAILS: ALLOWED, SMTP_URL: 'smtp://localhost:2525', ANTHROPIC_API_KEY: 'test-key' });
+    const production = await startApp({ NODE_ENV: 'production', ALLOWED_EMAILS: ALLOWED, SMTP_URL: 'smtp://localhost:2525', ANTHROPIC_API_KEY: 'test-key', AI_MODEL: 'claude-haiku-5-5' });
     try {
       for (const app of [withSmtp, production]) {
         expect((await requestLink(app, ALLOWED).expect(202)).body).toEqual({});
@@ -326,7 +326,7 @@ describe('sign-in in production', () => {
     const mailer = new LogMailer();
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(APP_CONFIG)
-      .useValue(loadConfig({ NODE_ENV: 'production', DATABASE_URL: db.url, ALLOWED_EMAILS: ALLOWED, SMTP_URL: 'smtp://localhost:2525', ANTHROPIC_API_KEY: 'test-key', REDIS_URL: NO_REDIS }))
+      .useValue(loadConfig({ NODE_ENV: 'production', DATABASE_URL: db.url, ALLOWED_EMAILS: ALLOWED, SMTP_URL: 'smtp://localhost:2525', ANTHROPIC_API_KEY: 'test-key', AI_MODEL: 'claude-haiku-5-5', REDIS_URL: NO_REDIS }))
       .overrideProvider(MAILER)
       .useValue(mailer)
       .compile();

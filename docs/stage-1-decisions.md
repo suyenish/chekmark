@@ -178,3 +178,11 @@ Decisions made while fixing sign-in, auditing, redesigning on Astryx and prepari
 - The interface font ships only its Latin files and the book serif carries Korean; fonts are declared in the theme's fonts stylesheet — halves the compressed CSS — cost if wrong: Korean in interface text falls back to the system font.
 - nginx sends a Content-Security-Policy (own origin only; inline styles and embedded fonts allowed because the design system and build need them), no-sniff, referrer and HSTS headers, and compresses text; the end-to-end test fails if the policy blocks anything — cost if wrong: a new outside resource must be added to the policy.
 - Still deferred: usage given back to the wrong day across UTC midnight; two pages explained at once can duplicate a new word's sense; AI_MODEL has a default in code; confirm does not check the budget.
+
+## After deployment (2026-11-23)
+
+- Email can go through Resend's web API (`RESEND_API_KEY`) as well as SMTP, because Railway's Hobby plan blocks SMTP ports — cost if wrong: none; SMTP still works where allowed.
+- Pages store `usage_counted_at`, the moment they counted towards the daily limit (upload or detection retry); detection failures and the stuck-page check give usage back to that day. Older pages fall back to `status_changed_at` — fixes usage given back to the wrong day across UTC midnight — cost if wrong: none.
+- Saving a page's explanations takes a per-reader lock (a Postgres advisory lock for the transaction). A "new" meaning for a word that gained a sense the model was not shown reuses that sense — fixes duplicate senses and the unique-key collision when two pages are explained at once — cost if wrong: a genuinely different meaning that another page added in the same moment is merged; the reader can still see both sightings.
+- `AI_MODEL` is required in production; development falls back to `claude-haiku-5-5` — cost if wrong: none.
+- Confirm checks the monthly budget when the page has marks (503, the page waits in the Mark check); a page with no marks still finishes — closes the last Stage 1 deferral — cost if wrong: a reader waits for next month or a higher budget to finish a checked page.
