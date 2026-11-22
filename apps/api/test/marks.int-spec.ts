@@ -259,6 +259,21 @@ describe('Mark check', () => {
       expect(queue.explanation).toEqual([]);
       expect(await prisma.aiCall.count()).toBe(0);
     });
+
+    it('confirm is paused with 503 when the monthly budget is reached, and the page waits in the Mark check', async () => {
+      await prisma.aiCall.create({ data: { purpose: 'detect', model: 'm', inputTokens: 1, outputTokens: 1, cost: 20, durationMs: 1 } });
+      const { page } = await createPage('AWAITING_CHECK', [{ type: 'curly', text: '비록' }]);
+      const response = await owner.post(`/pages/${page.id}/confirm`).expect(503);
+      expect(response.body.message).toMatch(/monthly AI budget/);
+      expect((await pageRow(page.id)).status).toBe('AWAITING_CHECK');
+      expect(queue.explanation).toEqual([]);
+    });
+
+    it('confirm with no marks still finishes when the budget is reached, because it needs no AI call', async () => {
+      await prisma.aiCall.create({ data: { purpose: 'detect', model: 'm', inputTokens: 1, outputTokens: 1, cost: 20, durationMs: 1 } });
+      const { page } = await createPage('AWAITING_CHECK', []);
+      expect((await owner.post(`/pages/${page.id}/confirm`).expect(200)).body.status).toBe('DONE');
+    });
   });
 
   describe('retry', () => {
@@ -269,6 +284,8 @@ describe('Mark check', () => {
       expect(queue.detection).toEqual([page.id]);
       expect(queue.retries).toEqual([page.id]); // a new job, not one that an old failing job could swallow
       expect(await usage.used(ownerId, new Date())).toBe(1); // a detection retry counts as a page again
+      // ...on today's date, so a failure later gives it back to today, not to the original upload day.
+      expect(Date.now() - (await pageRow(page.id)).usageCountedAt!.getTime()).toBeLessThan(60_000);
     });
 
     it('a detection retry clears the old detection result, so an old unusable verdict cannot show again', async () => {

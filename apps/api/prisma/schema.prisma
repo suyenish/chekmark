@@ -116,6 +116,8 @@ model Page {
   /// The model's raw detection output, kept to compare with what the reader confirmed.
   detectionResult Json?        @map("detection_result")
   photoDeletedAt  DateTime?    @map("photo_deleted_at")
+  /// When this page last counted towards the daily limit (its upload or a detection retry), so usage is given back to that day.
+  usageCountedAt  DateTime?    @map("usage_counted_at")
   createdAt       DateTime     @default(now()) @map("created_at")
 
   book         Book          @relation(fields: [bookId], references: [id], onDelete: Cascade)

@@ -25,9 +25,9 @@ Enter every key only in the Railway dashboard (or your local `.env`). Never past
 
 Check each provider's current pricing and free allowance when you sign up; prices change.
 
-1. **Railway** (railway.com): sign in with GitHub and allow access to the `suyenish/chekmark` repository.
+1. **Railway** (railway.com): sign in with GitHub and allow access to the `suyenish/chekmark` repository. The trial ends after a set time or credit; move to the Hobby plan before it does, or the app stops.
 2. **Cloudflare R2**: create a bucket named `chekmark-photos` (private; no public access). Create an R2 API token with *Object Read & Write* for that bucket only. Note the account's S3 endpoint, `https://<account-id>.r2.cloudflarestorage.com`.
-3. **Email**: for Stage 1, Resend works without your own domain: from `onboarding@resend.dev` it can send only to the address you signed up with, which is enough for one reader. Create an API key. For other readers later, verify a domain.
+3. **Email**: create a Resend API key (`re_...`). Without your own domain, Resend's `onboarding@resend.dev` sender reaches only the address you signed up with; any other address is refused with a 403 ("You can only send testing emails to your own email address"). To email other readers, verify a domain: see *Your own domain* below.
 4. **Anthropic**: create an API key for production (separate from the one on your laptop), and set a monthly spend limit in the console as a second safety net next to the app's own budget.
 
 ## Step 2: create the Railway project
@@ -53,7 +53,7 @@ Set the same variables on both (Railway's shared variables make this easier):
 | `S3_BUCKET` | `chekmark-photos` |
 | `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` | from the R2 token |
 | `ANTHROPIC_API_KEY` | your production key |
-| `AI_MODEL` | `claude-haiku-5-5` |
+| `AI_MODEL` | `claude-haiku-5-5`. Required in production, so the model always matches the two prices below |
 | `AI_INPUT_COST_PER_MTOK`, `AI_OUTPUT_COST_PER_MTOK` | `0.1`, `0.5` (check current Haiku prices) |
 | `AI_MONTHLY_BUDGET_USD` | `20` |
 | `DAILY_PAGE_LIMIT` | `5` |
@@ -62,7 +62,7 @@ Set the same variables on both (Railway's shared variables make this easier):
 | `OWNER_EMAIL` | your email (gets the budget alert) |
 | `APP_URL` | the web service's public URL, for example `https://chekmark.up.railway.app`. It must match the address in the browser exactly: sign-in links point to it, and requests from any other site are refused |
 | `RESEND_API_KEY` | your Resend API key (`re_...`). Railway's Hobby plan blocks SMTP, so use this instead of `SMTP_URL` there |
-| `MAIL_FROM` | `Chekmark <onboarding@resend.dev>` |
+| `MAIL_FROM` | `Chekmark <onboarding@resend.dev>`, or an address on your verified sending domain, such as `Chekmark <no-reply@mail.chekmark.app>` |
 
 Leave `AI_PROVIDER` unset: the app refuses `fake` in production.
 
@@ -79,8 +79,11 @@ The app limits sign-in links to 5 per address in 15 minutes and 300 an hour in t
 
 ### Commands
 
-- `api`: start command `node dist/main.js`; **pre-deploy command** `npx prisma migrate deploy`; health check path `/health`.
+- `api`: start command `node dist/main.js` (or empty); **pre-deploy command** `npx prisma migrate deploy`; health check path `/health`.
 - `worker`: start command `node dist/worker.js`; no public domain.
+- `web`: **no** custom start command and **no** custom build command. Its image is nginx and has no `pnpm`; a command such as `pnpm --filter web dev` (which Railway may fill in from the workspace) fails with "The executable `pnpm` could not be found".
+
+None of the three needs pnpm in a command: everything is built inside the Dockerfiles. A custom command typed into a settings box is only saved after you apply the staged change (the purple *Deploy* bar).
 
 ### `web`
 
@@ -101,11 +104,42 @@ Generate a public domain for `web` (Settings → Networking) with target port **
    ```
 
    Expected: `{"status":"ok","postgres":"up","redis":"up"}`.
-3. Open the site, sign in with your email, and check the link arrives. If it does not: the `api` log says at start whether the email server is reachable ("Email server is reachable" or "Cannot reach the email server"), and the sign-in screen says so when an email could not be sent.
+3. Open the site, sign in with your email, and check the link arrives. If it does not:
+   - The sign-in screen says so when an email could not be sent, and the `api` log has the reason, for example `Resend refused the email (400): API key is invalid` or `(403): You can only send testing emails to your own email address`.
+   - The `api` log says at start how it sends: "Sign-in links will be emailed through the Resend API", or for SMTP "Email server is reachable" / "Cannot reach the email server". On Railway's Hobby plan SMTP always times out: use `RESEND_API_KEY`.
+   - An address that is not in `ALLOWED_EMAILS` gets the same "check your email" screen but no email, on purpose, and nothing is logged.
+   - If pages stay unread, the `worker` log shows `401 ... invalid x-api-key` when `ANTHROPIC_API_KEY` is wrong.
+
+   When you paste a key into Railway, paste only the key itself: no quotes, spaces or line breaks, and not the whole `smtps://…` address it may have come from. After changing a variable, apply the staged change so the services redeploy.
 
 4. Redeploy `api` on its own, wait for it to finish, and run the `curl` again. It should still answer `ok`: the web server looks the API up every 10 seconds, so it follows a redeployed API to its new address without a restart.
 
 If `/api/health` answers 502, `web` cannot reach `api`: check `API_UPSTREAM`, and that `api` has `PORT=3000`. A 502 for a few seconds while `api` restarts is expected.
+
+## Your own domain
+
+The steps below use `chekmark.app`, bought on Cloudflare, so Cloudflare holds its DNS.
+
+### Sending email from it (Resend)
+
+1. In Resend → Domains, add a sending subdomain such as `mail.chekmark.app`. Keep *Enable Sending* on, add the recommended DMARC record, and leave *Enable Receiving* off: the app never receives email.
+2. Add every record Resend lists in Cloudflare → DNS (or let Resend configure Cloudflare for you): the DKIM TXT record, the SPF records (CNAME and/or MX, TXT) and DMARC (`_dmarc`, `v=DMARC1; p=none;`). Set any CNAME to **DNS only**: mail records do not work through Cloudflare's proxy.
+3. When Resend shows the domain as *Verified*, set `MAIL_FROM` to an address on it, for example `Chekmark <no-reply@mail.chekmark.app>`, and redeploy. Now any address in `ALLOWED_EMAILS` gets its link.
+
+### Serving the app on it (Railway)
+
+1. Railway → `web` → Settings → Networking → *Custom Domain*: add `chekmark.app` (port 8080).
+2. Add the records Railway shows in Cloudflare DNS: a CNAME for `@` and, if shown, a `_railway-verify` TXT. Keep the CNAME **DNS only**, so Railway can issue the HTTPS certificate (`.app` domains only work over HTTPS).
+3. When Railway shows the domain as ready, set `APP_URL=https://chekmark.app` (no trailing slash) and redeploy. From then on only that address works for signing in and uploading; the old `up.railway.app` address can still be opened but its actions are refused.
+
+### Sending `www` to the bare domain
+
+Do not add `www.chekmark.app` to Railway: its requests would come from a different address than `APP_URL` and be refused. Redirect it at Cloudflare instead:
+
+1. DNS: a CNAME `www` → `chekmark.app`, **Proxied** (the redirect runs on Cloudflare, so the request never reaches Railway).
+2. Rules → Redirect Rules: the *Redirect from WWW to root* template, or hostname equals `www.chekmark.app` → dynamic `concat("https://chekmark.app", http.request.uri.path)`, status 301, keep the query string.
+
+A device that looked up `www` before the record existed may remember "not found" for up to an hour; turning Airplane Mode on and off clears it on a phone.
 
 ## Step 4: test on real phones
 

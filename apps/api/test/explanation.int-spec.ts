@@ -249,6 +249,50 @@ describe('explanations and the word bank', () => {
     expect(card.sighting?.markId).toBe(marks[0].id);
   });
 
+  it('keeps one sense and one card when two pages with the same new word are explained at the same time', async () => {
+    const a = await createPage([{ type: 'underline_save', text: '가까스로', normalForm: '가까스로' }], 12);
+    const b = await createPage([{ type: 'underline_save', text: '가까스로', normalForm: '가까스로' }], 13);
+    const markOf = new Map([
+      [a.page.id, a.marks[0].id],
+      [b.page.id, b.marks[0].id],
+    ]);
+    // Hold both explain calls until both pages have looked up the word bank, as two workers would.
+    const original = fake.generate.bind(fake);
+    const arrivals: string[] = [];
+    let release!: () => void;
+    const bothAsked = new Promise<void>((resolve) => (release = resolve));
+    fake.generate = (async (req) => {
+      if (req.purpose === 'explain') {
+        arrivals.push(req.pageId!);
+        if (arrivals.length === 2) {
+          fake.queue(...arrivals.map((pageId) => explained(fresh(markOf.get(pageId)!, 'barely'))));
+          release();
+        }
+        await bothAsked;
+      }
+      return original(req);
+    }) as typeof fake.generate;
+    try {
+      await Promise.all([processor.process(job(a.page.id)), processor.process(job(b.page.id))]);
+    } finally {
+      fake.generate = original;
+    }
+
+    expect(await counts()).toMatchObject({ items: 1, senses: 1, sightings: 2, cards: 1 });
+    expect(await pageStatus(a.page.id)).toBe('DONE');
+    expect(await pageStatus(b.page.id)).toBe('DONE');
+  });
+
+  it('still adds a new sense when the model was shown the existing senses and chose a different meaning', async () => {
+    const first = await createPage([{ type: 'underline_save', text: '달다', normalForm: '달다' }], 12);
+    fake.queue(explained(fresh(first.marks[0].id, 'sweet')));
+    await processor.process(job(first.page.id));
+    const second = await createPage([{ type: 'underline_save', text: '달다', normalForm: '달다' }], 13);
+    fake.queue(explained(fresh(second.marks[0].id, 'to hang')));
+    await processor.process(job(second.page.id));
+    expect(await counts()).toMatchObject({ items: 1, senses: 2, sightings: 2, cards: 2 });
+  });
+
   it('handles a curly or added word mark inside an underlined sentence as two separate results', async () => {
     const sentence = '비록 긴 줄의 끄트머리에 섰을 뿐이지만, 어쨌거나 표를 구했고 너무나 기뻤다.';
     const { page, marks } = await createPage([

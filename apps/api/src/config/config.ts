@@ -10,7 +10,8 @@ const envSchema = z.object({
   NODE_ENV: text(z.enum(['development', 'test', 'production']).default('development')),
   PORT: wholeNumber(3000, 65_535),
   DATABASE_URL: text(z.string().regex(/^postgres(ql)?:\/\//, 'must be a postgresql:// address')),
-  AI_MODEL: text(z.string().default('claude-haiku-5-5')),
+  /** Required in production, so the model is always chosen together with AI_*_COST_PER_MTOK. Development falls back to Haiku. */
+  AI_MODEL: text(z.string().optional()),
   AI_INPUT_COST_PER_MTOK: positive(0.1),
   AI_OUTPUT_COST_PER_MTOK: positive(0.5),
   AI_MONTHLY_BUDGET_USD: positive(20),
@@ -60,6 +61,9 @@ const envSchema = z.object({
   if (env.NODE_ENV === 'production' && env.AI_PROVIDER === 'fake') {
     ctx.addIssue({ code: 'custom', path: ['AI_PROVIDER'], message: 'cannot be fake in production' });
   }
+  if (env.NODE_ENV === 'production' && !env.AI_MODEL) {
+    ctx.addIssue({ code: 'custom', path: ['AI_MODEL'], message: 'is required in production, and must match AI_INPUT_COST_PER_MTOK and AI_OUTPUT_COST_PER_MTOK' });
+  }
   if (env.NODE_ENV === 'production' && !env.ANTHROPIC_API_KEY) {
     ctx.addIssue({ code: 'custom', path: ['ANTHROPIC_API_KEY'], message: 'is required in production, so the worker can read pages' });
   }
@@ -67,6 +71,9 @@ const envSchema = z.object({
     ctx.addIssue({ code: 'custom', path: ['SMTP_URL'], message: 'SMTP_URL or RESEND_API_KEY is required in production, so sign-in links reach people' });
   }
 });
+
+/** Only outside production, where AI_MODEL is required. */
+const DEVELOPMENT_AI_MODEL = 'claude-haiku-5-5';
 
 export type AppConfig = ReturnType<typeof toConfig>;
 
@@ -88,7 +95,7 @@ function toConfig(env: z.infer<typeof envSchema>) {
     nodeEnv: env.NODE_ENV,
     port: env.PORT,
     databaseUrl: env.DATABASE_URL,
-    aiModel: env.AI_MODEL,
+    aiModel: env.AI_MODEL ?? DEVELOPMENT_AI_MODEL,
     aiInputCostPerMtok: env.AI_INPUT_COST_PER_MTOK,
     aiOutputCostPerMtok: env.AI_OUTPUT_COST_PER_MTOK,
     aiMonthlyBudgetUsd: env.AI_MONTHLY_BUDGET_USD,

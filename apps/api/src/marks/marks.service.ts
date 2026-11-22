@@ -109,6 +109,8 @@ export class MarksService {
    * Ends the Mark check. With marks, the page moves to EXPLAINING and one
    * explanation job is queued. With none, there is nothing to explain, so the
    * page moves on to DONE in the same transaction, without an AI call.
+   * While the monthly AI budget is reached, a page with marks waits here (503)
+   * instead of starting an explanation.
    */
   async confirm(userId: string, pageId: string): Promise<Page> {
     const page = await this.ownPage(userId, pageId);
@@ -117,6 +119,7 @@ export class MarksService {
     if (unclear > 0) throw new ConflictException(`Choose a type for or remove ${unclear} unclear mark(s) before confirming.`);
 
     const markCount = await this.prisma.mark.count({ where: { pageId } });
+    if (markCount > 0) await this.usage.assertBudgetAvailable(new Date());
     const moved = await this.prisma.$transaction(async (tx) => {
       if (!(await movePage(tx, pageId, 'AWAITING_CHECK', 'EXPLAINING'))) return false;
       if (markCount === 0) await movePage(tx, pageId, 'EXPLAINING', 'DONE');
@@ -147,7 +150,7 @@ export class MarksService {
         throw new ConflictException('This page is already being retried.');
       }
       // The new detection replaces the old answer, including an "unusable photo" verdict.
-      await this.prisma.page.update({ where: { id: pageId }, data: { detectionResult: Prisma.DbNull } });
+      await this.prisma.page.update({ where: { id: pageId }, data: { detectionResult: Prisma.DbNull, usageCountedAt: now } });
       await this.enqueue(() => this.queue.enqueueDetection(pageId, { retry: true }), pageId);
     }
     return this.prisma.page.findUniqueOrThrow({ where: { id: pageId } });
