@@ -1,10 +1,14 @@
 import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { z } from 'zod';
 import type { SignedInUser } from '../accounts/auth.service.js';
+import { NotInDemoGuard } from '../accounts/not-in-demo.guard.js';
 import { CurrentUser, SessionGuard } from '../accounts/session.guard.js';
 import type { Mark } from '../generated/prisma/client.js';
 import { pageView } from '../library/views.js';
 import { MarksService } from './marks.service.js';
+
+/** Keeps a demo account small. */
+const DEMO_MARKS_PER_PAGE = 30;
 
 const chosenType = z.enum(['underline_save', 'underline_translate', 'curly'], {
   error: 'Choose underline_save, underline_translate or curly',
@@ -49,7 +53,7 @@ export class MarksController {
 
   @Post('pages/:id/marks')
   async add(@CurrentUser() user: SignedInUser, @Param('id') pageId: string, @Body() body: unknown) {
-    return markView(await this.marks.addMark(user.id, pageId, parse(addBody, body)));
+    return markView(await this.marks.addMark(user.id, pageId, parse(addBody, body), user.demo ? DEMO_MARKS_PER_PAGE : undefined));
   }
 
   @Patch('marks/:id')
@@ -66,10 +70,11 @@ export class MarksController {
   @Post('pages/:id/confirm')
   @HttpCode(200)
   async confirm(@CurrentUser() user: SignedInUser, @Param('id') pageId: string) {
-    return pageView(await this.marks.confirm(user.id, pageId));
+    return pageView(await this.marks.confirm(user.id, pageId, { freeOfCost: user.demo }));
   }
 
   @Post('pages/:id/retry')
+  @UseGuards(NotInDemoGuard)
   @HttpCode(200)
   async retry(@CurrentUser() user: SignedInUser, @Param('id') pageId: string) {
     return pageView(await this.marks.retry(user.id, pageId));

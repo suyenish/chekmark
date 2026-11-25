@@ -26,6 +26,6 @@ import { UsageService } from './usage.service.js';
       },
     },
   ],
-  exports: [AuthService, SessionGuard, UsageService, MAILER],
+  exports: [AuthService, AccountService, SessionGuard, UsageService, MAILER],
 })
 export class AccountsModule {}

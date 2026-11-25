@@ -28,6 +28,7 @@ WORKDIR /app
 COPY --from=build --chown=node:node /out/package.json /out/prisma.config.ts ./
 COPY --from=build --chown=node:node /out/prisma ./prisma
 COPY --from=build --chown=node:node /out/node_modules ./node_modules
+COPY --from=build --chown=node:node /out/assets ./assets
 COPY --from=build --chown=node:node /out/dist ./dist
 USER node
 EXPOSE 3000

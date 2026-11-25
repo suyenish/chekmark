@@ -58,6 +58,7 @@ Set the same variables on both (Railway's shared variables make this easier):
 | `AI_MONTHLY_BUDGET_USD` | `20` |
 | `DAILY_PAGE_LIMIT` | `5` |
 | `SIGN_UP` | `allowlist` (only `ALLOWED_EMAILS` can sign in) or `open` (anyone with an email address). Start with `allowlist` |
+| `DEMO` | `on` shows **Try the demo** on the sign-in screen: a temporary account with sample pages, deleted after 24 hours, at most 60 new ones an hour. Demo accounts cannot upload and never call Claude. Off by default; set it on both `api` and `worker` |
 | `ALLOWED_EMAILS` | your email, and anyone you invite, separated by commas |
 | `OWNER_EMAIL` | your email (gets the budget alert) |
 | `APP_URL` | the web service's public URL, for example `https://chekmark.up.railway.app`. It must match the address in the browser exactly: sign-in links point to it, and requests from any other site are refused |

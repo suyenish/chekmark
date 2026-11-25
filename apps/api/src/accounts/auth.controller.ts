@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
 import { AccountService } from './account.service.js';
 import { AuthService, SESSION_LIFETIME_MS, type SignedInUser } from './auth.service.js';
-import { CurrentUser, readCookie, SESSION_COOKIE, SessionGuard } from './session.guard.js';
+import { CurrentUser, readCookie, SESSION_COOKIE, sessionCookieOptions, SessionGuard } from './session.guard.js';
 
 const requestLinkBody = z.object({ email: z.string().trim().toLowerCase().pipe(z.email()) });
 const verifyBody = z.object({ token: z.string().min(1) });
@@ -24,7 +24,7 @@ export class AuthController {
   ) {}
 
   private cookieOptions(): CookieOptions {
-    return { httpOnly: true, sameSite: 'lax', secure: this.config.nodeEnv === 'production', path: '/' };
+    return sessionCookieOptions(this.config);
   }
 
   /**

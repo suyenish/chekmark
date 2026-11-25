@@ -67,6 +67,7 @@ services:
       APP_URL: http://localhost:8080
       # On your own machine anyone may sign in, and with no SMTP_URL the sign-in screen shows the link itself.
       SIGN_UP: ${SIGN_UP:-open}
+      DEMO: ${DEMO:-off}
       ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
       SMTP_URL: ${SMTP_URL:-}
       MAIL_FROM: ${MAIL_FROM:-}

@@ -5,6 +5,16 @@ import type { Api } from '../api';
 import { TestApp } from '../test-app';
 import { Capture } from './Capture';
 
+it('in the demo, explains that upload is off instead of asking for a photo', () => {
+  render(
+    <TestApp api={{}} path="/books/b1/capture">
+      <Capture demo />
+    </TestApp>,
+  );
+  expect(screen.getByText(/switched off in the demo/i)).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /upload/i })).toBeNull();
+});
+
 describe('Capture', () => {
   it('shows a clear error when the browser cannot read the chosen file', async () => {
     const user = userEvent.setup({ applyAccept: false });
