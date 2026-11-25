@@ -34,6 +34,8 @@ I was reading the Korean edition of *Atomic Habits* by James Clear to practise m
 
 ## What it is built with
 
+I chose a stack I had already used at work.
+
 | Part | Technology |
 |---|---|
 | API and worker | NestJS 12, TypeScript, one codebase started as two processes |
