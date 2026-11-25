@@ -20,7 +20,7 @@ I was reading the Korean edition of *Atomic Habits* by James Clear to practise m
 
 **Who it is for.** A small group of people who like learning a language by reading paper books with a pencil in hand. It also works for e-books: mark the page on a tablet, then take a screenshot or a photo of it.
 
-**Why I built it before accuracy reached the target.** The first test scored about 75% against a 90% target, but the test set was small (7 pages) and I wanted to use the app myself. On my own pages I usually see 95–100%; grammar books and unusual layouts that other people sent me do worse. Those figures for my own pages are my impression, not a measured result, and the Mark check is there because a page can still go wrong.
+**Why I built it before accuracy reached the target.** The first test scored about 75% against a 90% target, but the test set was small (7 pages) and I wanted to use the app myself. Since then I have tested 25 pages myself, and I estimate about 85% of marks were read correctly overall. My own pages usually do best, at 95–100%; grammar books and unusual layouts that other people sent me do worse. Those later figures are my estimates, not a scored test, and the Mark check is there because a page can still go wrong.
 
 **What changed for me.** A page that took 30–40 minutes now takes about 5–10 (my own estimate). The notes are already there, so I spend the time memorising new words and grammar instead of googling everything, choosing websites and working out which use of a word fits the sentence.
 
