@@ -11,11 +11,13 @@ export const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 export interface SignedInUser {
   id: string;
   email: string;
+  /** Only on temporary demo accounts. */
+  demo?: true;
 }
 
 /** Only hashes reach the database, so a leaked table cannot be used to sign in. */
 export const hashSecret = (secret: string) => createHash('sha256').update(secret).digest('hex');
-const newSecret = () => randomBytes(32).toString('base64url');
+export const newSecret = () => randomBytes(32).toString('base64url');
 
 @Injectable()
 export class AuthService {
@@ -83,7 +85,9 @@ export class AuthService {
       where: { tokenHash: hashSecret(sessionId), expiresAt: { gt: new Date() } },
       include: { user: true },
     });
-    return session ? { id: session.user.id, email: session.user.email } : null;
+    if (!session) return null;
+    const { id, email, demoExpiresAt } = session.user;
+    return { id, email, ...(demoExpiresAt ? { demo: true as const } : {}) };
   }
 
   async logout(sessionId: string): Promise<void> {

@@ -15,6 +15,7 @@ describe('loadConfig', () => {
       dailyPageLimit: 5,
       allowedEmails: [],
       signUp: 'allowlist',
+      demo: false,
       appUrl: 'http://localhost:5173',
       smtpUrl: null,
       resendApiKey: null,

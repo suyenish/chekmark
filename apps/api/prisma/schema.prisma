@@ -51,16 +51,19 @@ enum Rating {
 }
 
 model User {
-  id                  String   @id @default(uuid()) @db.Uuid
-  email               String   @unique
-  explanationLanguage String   @default("en") @map("explanation_language")
-  createdAt           DateTime @default(now()) @map("created_at")
+  id                  String    @id @default(uuid()) @db.Uuid
+  email               String    @unique
+  explanationLanguage String    @default("en") @map("explanation_language")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  /// Set only on temporary demo accounts: when the account is deleted.
+  demoExpiresAt       DateTime? @map("demo_expires_at")
 
   books    Book[]
   items    Item[]
   aiCalls  AiCall[]
   sessions Session[]
 
+  @@index([demoExpiresAt])
   @@map("users")
 }
 
@@ -234,16 +237,16 @@ model Card {
 }
 
 model AiCall {
-  id           String         @id @default(uuid()) @db.Uuid
-  userId       String?        @map("user_id") @db.Uuid
-  pageId       String?        @map("page_id") @db.Uuid
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  pageId       String?  @map("page_id") @db.Uuid
   purpose      String
   model        String
-  inputTokens  Int            @map("input_tokens")
-  outputTokens Int            @map("output_tokens")
-  cost         Decimal        @db.Decimal(12, 6)
-  durationMs   Int            @map("duration_ms")
-  createdAt    DateTime       @default(now()) @map("created_at")
+  inputTokens  Int      @map("input_tokens")
+  outputTokens Int      @map("output_tokens")
+  cost         Decimal  @db.Decimal(12, 6)
+  durationMs   Int      @map("duration_ms")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   /// Cost records outlive the account and the page: the money was spent, and the monthly budget is their sum.
   user User? @relation(fields: [userId], references: [id], onDelete: SetNull)

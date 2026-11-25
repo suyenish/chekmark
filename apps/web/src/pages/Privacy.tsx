@@ -21,6 +21,10 @@ const SECTIONS: { title: string; body: string }[] = [
     body: 'There is no password. A one-time link is emailed to you, and a cookie keeps you signed in on that device for 30 days. The cookie is used only for signing in. There are no tracking or advertising cookies.',
   },
   {
+    title: 'The demo',
+    body: 'The demo asks for no email. It makes a temporary account with sample pages, kept apart from everyone else’s, and deletes it with everything in it after about 24 hours. Nothing in the demo is sent to Claude.',
+  },
+  {
     title: 'Deleting everything',
     body: 'Settings has a Delete account button. It removes your account, books, pages, photos, word bank and cards right away, and it cannot be undone.',
   },

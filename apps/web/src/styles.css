@@ -202,3 +202,7 @@ body {
   object-fit: contain;
   border-radius: var(--radius-container);
 }
+
+.demo-note {
+  margin-block-end: 24px;
+}

@@ -1,9 +1,11 @@
 import { Inject, Injectable, Logger, type OnApplicationBootstrap, type OnApplicationShutdown } from '@nestjs/common';
 import { Queue, Worker } from 'bullmq';
 import type { Redis } from 'ioredis';
+import { AccountService } from '../accounts/account.service.js';
 import { deleteExpiredSignIns } from '../accounts/sign-in-cleanup.js';
 import { UsageService } from '../accounts/usage.service.js';
 import { APP_CONFIG, type AppConfig } from '../config/config.js';
+import { deleteExpiredDemos } from '../demo/demo-cleanup.js';
 import { PHOTO_STORE, type PhotoStore } from '../photos/photo-store.js';
 import { deleteExpiredPhotos } from '../photos/photo-retention.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -20,7 +22,7 @@ import {
 } from './queues.js';
 import { requeueStuckPages } from './stuck-pages.js';
 
-/** Runs in the worker process: schedules and runs the stuck-page check (every 5 minutes) and photo retention (daily). */
+/** Runs in the worker process: schedules and runs the stuck-page check with demo clean-up (every 5 minutes) and photo retention (daily). */
 @Injectable()
 export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(MaintenanceWorker.name);
@@ -34,6 +36,7 @@ export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationS
     @Inject(PAGE_QUEUE) private readonly pageQueue: PageQueue,
     @Inject(PHOTO_STORE) private readonly photos: PhotoStore,
     private readonly usage: UsageService,
+    private readonly accounts: AccountService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -50,6 +53,8 @@ export class MaintenanceWorker implements OnApplicationBootstrap, OnApplicationS
         if (job.name === STUCK_PAGE_CHECK) {
           const count = await requeueStuckPages(this.prisma, this.pageQueue, new Date(), this.usage);
           if (count > 0) this.logger.log(`Re-queued ${count} stuck page(s)`);
+          const demos = await deleteExpiredDemos(this.prisma, this.accounts, new Date());
+          if (demos > 0) this.logger.log(`Deleted ${demos} expired demo account(s)`);
         } else if (job.name === EXPIRED_PHOTO_CHECK) {
           const count = await deleteExpiredPhotos(this.prisma, this.photos, new Date());
           if (count > 0) this.logger.log(`Deleted ${count} photo(s) older than 30 days`);

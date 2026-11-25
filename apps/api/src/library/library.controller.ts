@@ -18,6 +18,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import type {} from 'multer'; // adds the Express.Multer.File type
 import { z } from 'zod';
 import type { SignedInUser } from '../accounts/auth.service.js';
+import { NotInDemoGuard } from '../accounts/not-in-demo.guard.js';
 import { CurrentUser, SessionGuard } from '../accounts/session.guard.js';
 import type { Book } from '../generated/prisma/client.js';
 import { isJpeg, MAX_PHOTO_BYTES } from '../photos/photo-store.js';
@@ -62,6 +63,7 @@ export class LibraryController {
   }
 
   @Post('books')
+  @UseGuards(NotInDemoGuard)
   async createBook(@CurrentUser() user: SignedInUser, @Body() body: unknown) {
     return bookView(await this.library.createBook(user.id, parse(bookBody, body).title));
   }
@@ -89,6 +91,7 @@ export class LibraryController {
 
   /** Multipart form: `photo` (a JPEG file, at most 10 MB) and `pageNumber`. */
   @Post('books/:id/pages')
+  @UseGuards(NotInDemoGuard)
   @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: MAX_PHOTO_BYTES, files: 1 } }))
   async createPage(
     @CurrentUser() user: SignedInUser,

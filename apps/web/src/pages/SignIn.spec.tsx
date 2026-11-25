@@ -6,7 +6,7 @@ import { SignIn } from './SignIn';
 
 function renderSignIn(api: Partial<Api>, path = '/sign-in') {
   return render(
-    <TestApp api={api} path={path}>
+    <TestApp api={{ demoEnabled: async () => false, ...api }} path={path}>
       <SignIn onSignedIn={() => {}} />
     </TestApp>,
   );
@@ -19,6 +19,30 @@ async function ask(email = 'reader@example.com') {
 }
 
 describe('SignIn', () => {
+  it('offers the demo only when the server has it on, and signs the visitor in', async () => {
+    const onSignedIn = vi.fn();
+    const visitor = { id: 'd1', email: 'demo-d1@demo.invalid', demo: true as const };
+    render(
+      <TestApp api={{ demoEnabled: async () => true, startDemo: async () => visitor }} path="/sign-in">
+        <SignIn onSignedIn={onSignedIn} />
+      </TestApp>,
+    );
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Try the demo' }));
+    expect(onSignedIn).toHaveBeenCalledWith(visitor);
+  });
+
+  it('shows no demo button when it is off or cannot be checked', async () => {
+    renderSignIn({ demoEnabled: vi.fn(async () => Promise.reject(new Error('offline'))) });
+    expect(await screen.findByLabelText('Email')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Try the demo' })).toBeNull();
+  });
+
+  it('says why when a demo cannot start', async () => {
+    renderSignIn({ demoEnabled: async () => true, startDemo: async () => Promise.reject(new ApiError(429, 'The demo is busy right now.')) });
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Try the demo' }));
+    expect(await screen.findByText('The demo is busy right now.')).toBeInTheDocument();
+  });
+
   it('says to check email, and how long the link lasts', async () => {
     const requestLink = vi.fn(async () => ({}));
     renderSignIn({ requestLink });

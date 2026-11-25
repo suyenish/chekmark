@@ -26,6 +26,8 @@ const envSchema = z.object({
   ),
   /** Who may sign in: only ALLOWED_EMAILS (allowlist), or anyone with an email address (open). */
   SIGN_UP: text(z.enum(['allowlist', 'open']).default('allowlist')),
+  /** on: the sign-in screen offers temporary demo accounts with sample data. They never call Claude. */
+  DEMO: text(z.enum(['on', 'off']).default('off')),
   /** Where the web app runs. Sign-in links point here. */
   APP_URL: text(z.url().default('http://localhost:5173').transform((url) => url.replace(/\/+$/, ''))),
   /** For example smtps://user:password@smtp.example.com:465. Without it, links are only logged. */
@@ -102,6 +104,7 @@ function toConfig(env: z.infer<typeof envSchema>) {
     dailyPageLimit: env.DAILY_PAGE_LIMIT,
     allowedEmails: env.ALLOWED_EMAILS,
     signUp: env.SIGN_UP,
+    demo: env.DEMO === 'on',
     appUrl: env.APP_URL,
     smtpUrl: env.SMTP_URL ?? null,
     resendApiKey: env.RESEND_API_KEY ?? null,

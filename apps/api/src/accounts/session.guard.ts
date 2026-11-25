@@ -5,10 +5,18 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { CookieOptions, Request } from 'express';
+import type { AppConfig } from '../config/config.js';
 import { AuthService, type SignedInUser } from './auth.service.js';
 
 export const SESSION_COOKIE = 'session';
+
+export const sessionCookieOptions = (config: AppConfig): CookieOptions => ({
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: config.nodeEnv === 'production',
+  path: '/',
+});
 
 type RequestWithUser = Request & { user?: SignedInUser };
 

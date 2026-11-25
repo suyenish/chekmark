@@ -15,7 +15,7 @@ import { ErrorNote } from '../ui';
  * Page number and one photo. A plain file input opens the phone's own camera
  * or photo library, which works on every phone, unlike a live camera view.
  */
-export function Capture() {
+export function Capture({ demo = false }: { demo?: boolean }) {
   const api = useApi();
   const navigate = useNavigate();
   const { bookId = '' } = useParams();
@@ -61,6 +61,20 @@ export function Capture() {
       setError(messageOf(e));
       setBusy(null);
     }
+  }
+
+  if (demo) {
+    return (
+      <VStack gap={3} hAlign="start">
+        <Heading level={1}>Add a page</Heading>
+        <Text type="large" color="secondary" as="p">
+          Photo upload is switched off in the demo. Open page 14 in the sample book to try the Mark check.
+        </Text>
+        <Link href={`/books/${bookId}`} isStandalone>
+          Back to the book
+        </Link>
+      </VStack>
+    );
   }
 
   return (

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Banner } from '@astryxdesign/core/Banner';
 import { Badge } from '@astryxdesign/core/Badge';
 import { Button } from '@astryxdesign/core/Button';
 import { HStack } from '@astryxdesign/core/HStack';
@@ -89,6 +90,11 @@ function AppRoutes() {
   return (
     <div className="shell">
       <Header user={user ?? null} onSignOut={signOut} />
+      {user?.demo && (
+        <div className="demo-note">
+          <Banner status="info" title="You are in the demo" description="Sample pages with saved explanations, in your own temporary account. It is deleted after 24 hours." collapsible={false} />
+        </div>
+      )}
       <main>
         {error ? (
           <ErrorNote message={error} hint="Reload the page to try again." />
@@ -102,7 +108,7 @@ function AppRoutes() {
               <>
                 <Route path="/" element={<Books />} />
                 <Route path="/books/:bookId" element={<BookPages />} />
-                <Route path="/books/:bookId/capture" element={<Capture />} />
+                <Route path="/books/:bookId/capture" element={<Capture demo={user.demo} />} />
                 <Route path="/pages/:pageId" element={<PageRoute />} />
                 <Route path="/wordbank" element={<WordBank />} />
                 <Route path="/wordbank/:itemId" element={<ItemScreen />} />
@@ -111,7 +117,7 @@ function AppRoutes() {
                   path="/settings"
                   element={
                     <Settings
-                      email={user.email}
+                      email={user.demo ? 'a demo visitor' : user.email}
                       onDeleted={() => {
                         setUser(null);
                         navigate('/sign-in', { replace: true });

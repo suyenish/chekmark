@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { UsageService } from '../accounts/usage.service.js';
 import { type Mark, type MarkType, type Page, Prisma } from '../generated/prisma/client.js';
 import { movePage } from '../jobs/page-status.js';
@@ -88,9 +88,12 @@ export class MarksService {
   }
 
   /** A mark detection missed. It goes after the existing marks. */
-  async addMark(userId: string, pageId: string, mark: NewMark): Promise<Mark> {
+  async addMark(userId: string, pageId: string, mark: NewMark, maxMarks?: number): Promise<Mark> {
     const page = await this.ownPage(userId, pageId);
     if (page.status !== 'AWAITING_CHECK') throw new ConflictException(NOT_IN_CHECK);
+    if (maxMarks !== undefined && (await this.prisma.mark.count({ where: { pageId } })) >= maxMarks) {
+      throw new ForbiddenException('The demo allows no more marks on this page.');
+    }
     const last = await this.prisma.mark.aggregate({ where: { pageId }, _max: { order: true } });
     return this.prisma.mark.create({
       data: {
@@ -110,16 +113,16 @@ export class MarksService {
    * explanation job is queued. With none, there is nothing to explain, so the
    * page moves on to DONE in the same transaction, without an AI call.
    * While the monthly AI budget is reached, a page with marks waits here (503)
-   * instead of starting an explanation.
+   * instead of starting an explanation. A demo page costs nothing, so it does not wait.
    */
-  async confirm(userId: string, pageId: string): Promise<Page> {
+  async confirm(userId: string, pageId: string, { freeOfCost = false } = {}): Promise<Page> {
     const page = await this.ownPage(userId, pageId);
     if (page.status !== 'AWAITING_CHECK') throw new ConflictException('This page has already been confirmed.');
     const unclear = await this.prisma.mark.count({ where: { pageId, type: 'unclear' } });
     if (unclear > 0) throw new ConflictException(`Choose a type for or remove ${unclear} unclear mark(s) before confirming.`);
 
     const markCount = await this.prisma.mark.count({ where: { pageId } });
-    if (markCount > 0) await this.usage.assertBudgetAvailable(new Date());
+    if (markCount > 0 && !freeOfCost) await this.usage.assertBudgetAvailable(new Date());
     const moved = await this.prisma.$transaction(async (tx) => {
       if (!(await movePage(tx, pageId, 'AWAITING_CHECK', 'EXPLAINING'))) return false;
       if (markCount === 0) await movePage(tx, pageId, 'EXPLAINING', 'DONE');

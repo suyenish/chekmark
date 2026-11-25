@@ -7,6 +7,8 @@ export type ChosenMarkType = Exclude<MarkType, 'unclear'>;
 export interface User {
   id: string;
   email: string;
+  /** Only on temporary demo accounts. */
+  demo?: true;
 }
 
 export interface Book {
@@ -144,6 +146,9 @@ export interface Api {
   me(): Promise<User | null>;
   requestLink(email: string): Promise<RequestLinkAnswer>;
   verify(token: string): Promise<User>;
+  /** Whether this server offers the demo. */
+  demoEnabled(): Promise<boolean>;
+  startDemo(): Promise<User>;
   logout(): Promise<void>;
   listBooks(): Promise<Book[]>;
   createBook(title: string): Promise<Book>;
@@ -215,6 +220,8 @@ export const httpApi: Api = {
   },
   requestLink: async (email) => (await call<RequestLinkAnswer | null>('POST', '/auth/request-link', { email })) ?? {},
   verify: (token) => call('POST', '/auth/verify', { token }),
+  demoEnabled: async () => (await call<{ enabled: boolean }>('GET', '/demo')).enabled,
+  startDemo: () => call('POST', '/demo'),
   logout: () => call('POST', '/auth/logout'),
   listBooks: () => call('GET', '/books'),
   createBook: (title) => call('POST', '/books', { title }),

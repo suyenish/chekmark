@@ -49,6 +49,25 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const verifying = useRef(false);
+  const [demoEnabled, setDemoEnabled] = useState(false);
+  const [startingDemo, setStartingDemo] = useState(false);
+
+  useEffect(() => {
+    api.demoEnabled().then(setDemoEnabled, () => undefined); // without an answer there is simply no demo button
+  }, [api]);
+
+  async function startDemo() {
+    setStartingDemo(true);
+    setError(null);
+    try {
+      const user = await api.startDemo();
+      onSignedIn(user);
+      navigate('/', { replace: true });
+    } catch (e) {
+      setError(messageOf(e));
+      setStartingDemo(false);
+    }
+  }
 
   useEffect(() => {
     if (!token || verifying.current) return; // a link works once, so it is used once
@@ -143,6 +162,14 @@ export function SignIn({ onSignedIn }: { onSignedIn: (user: User) => void }) {
           </Text>
         </VStack>
       </form>
+      {demoEnabled && (
+        <VStack gap={2}>
+          <Button label="Try the demo" variant="secondary" size="lg" width="100%" isLoading={startingDemo} onClick={() => void startDemo()} />
+          <Text type="supporting" as="p">
+            No email needed. You get sample pages in your own temporary account, which is deleted after 24 hours.
+          </Text>
+        </VStack>
+      )}
       <HowItWorks />
     </VStack>
   );
